@@ -1,5 +1,5 @@
 {
-  "name": "startup-template",
+  "name": "furtli",
   "version": "0.0.0",
   "private": true,
   "packageManager": "pnpm@10.28.0",
@@ -16,9 +16,7 @@
     "test:e2e": "pnpm --filter web test:e2e",
     "db:generate": "pnpm --filter db generate",
     "db:migrate": "pnpm --filter db migrate",
-    "db:studio": "pnpm --filter db studio",
-    "db:seed": "pnpm --filter db seed",
-    "db:export": "pnpm --filter db content:export"
+    "db:studio": "pnpm --filter db studio"
   },
   "dependencies": {
     "@neon/config": "^1.7.3",

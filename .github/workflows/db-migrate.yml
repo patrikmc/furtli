@@ -2,10 +2,9 @@ name: DB migrate (Neon)
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - "packages/db/migrations/**"
-      - "content/quizzes/**"
   workflow_dispatch:
     inputs:
       environment:
@@ -13,10 +12,6 @@ on:
         type: choice
         options: [test]
         default: test
-      seed:
-        description: "Also run pnpm db:seed (idempotent)"
-        type: boolean
-        default: true
 
 concurrency:
   group: db-migrate-${{ inputs.environment || 'test' }}
@@ -52,19 +47,3 @@ jobs:
 
       - name: apply migrations
         run: pnpm db:migrate
-
-      - name: decide whether to seed
-        id: content
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "seed=${{ inputs.seed }}" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" 2>/dev/null | grep -q '^content/quizzes/' \
-               || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
-            echo "seed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "seed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: seed quiz content
-        if: steps.content.outputs.seed == 'true'
-        run: pnpm db:seed

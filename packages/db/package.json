@@ -14,8 +14,6 @@
     "migrate": "drizzle-kit migrate",
     "studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx src/seed.ts",
-    "content:export": "tsx src/export.ts",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:integration": "vitest run --project integration",
@@ -24,7 +22,6 @@
   "dependencies": {
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.9",
-    "yaml": "^2.9.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {

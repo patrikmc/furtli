@@ -15,6 +15,8 @@ import { TEST_DATABASE_URL } from "./src/test/test-db.ts";
 //   stomp on each other's data.
 export default defineConfig({
   test: {
+    // No db tests exist until step 2 adds a schema — don't fail CI on that.
+    passWithNoTests: true,
     projects: [
       {
         test: {

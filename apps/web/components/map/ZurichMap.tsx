@@ -1,0 +1,188 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import Map, {
+  AttributionControl,
+  Layer,
+  Marker,
+  NavigationControl,
+  Source,
+  type MapLayerMouseEvent,
+  type MapRef,
+} from "react-map-gl/maplibre";
+import type { GeoJSONSource, Map as MaplibreMap } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+
+import type { KreisCollection, StationCollection } from "@/lib/geo/types";
+import { ZH_BOUNDS } from "@/lib/geo/kreis";
+import { DATA_ATTRIBUTION } from "@/lib/map-config";
+import { reducedMotion } from "@/lib/motion";
+import { registerStationIcons } from "./icons";
+import {
+  LAYER,
+  clusterCircle,
+  clusterCount,
+  kreisFill,
+  kreisLabel,
+  kreisLine,
+  stationHalo,
+  stationSymbol,
+} from "./layers";
+
+export type InitialView =
+  | { longitude: number; latitude: number; zoom: number }
+  | { bounds: [number, number, number, number]; fitBoundsOptions?: { padding: number | { top: number; left: number; right: number; bottom: number } } };
+
+export interface ZurichMapProps {
+  mapRef: RefObject<MapRef | null>;
+  initialView: InitialView;
+  styleUrl: string;
+  kreise: KreisCollection | null;
+  stations: StationCollection | null;
+  activeKreis: number | null;
+  selectedStationId: string | null;
+  userLocation: { lng: number; lat: number } | null;
+  onSelectStation: (id: string) => void;
+  onSelectKreis: (kreis: number | null) => void;
+  onLoad: () => void;
+  onError: (message: string) => void;
+}
+
+const INTERACTIVE = [LAYER.stations, LAYER.clusters, LAYER.kreisFill];
+
+/** First text font the base style uses — so our labels load glyphs any provider actually has. */
+function detectFont(map: MaplibreMap): string[] | null {
+  for (const layer of map.getStyle().layers ?? []) {
+    const f = layer.type === "symbol" ? layer.layout?.["text-font"] : undefined;
+    if (Array.isArray(f) && f.every((x) => typeof x === "string")) return f as string[];
+  }
+  return null;
+}
+
+export default function ZurichMap({
+  mapRef,
+  initialView,
+  styleUrl,
+  kreise,
+  stations,
+  activeKreis,
+  selectedStationId,
+  userLocation,
+  onSelectStation,
+  onSelectKreis,
+  onLoad,
+  onError,
+}: ZurichMapProps) {
+  const [font, setFont] = useState<string[] | null>(null);
+  // Our sources mount only once icons are registered, so markers never
+  // reference a missing image.
+  const [styleReady, setStyleReady] = useState(false);
+  const [hovering, setHovering] = useState(false);
+  const cleanupIcons = useRef<(() => void) | null>(null);
+
+  // Icons + font must be (re)applied after every style load, including
+  // swaps from the dev style switcher.
+  const handleStyle = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    cleanupIcons.current?.();
+    cleanupIcons.current = registerStationIcons(map);
+    const next = detectFont(map);
+    setFont((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    setStyleReady(true);
+  }, [mapRef]);
+
+  useEffect(() => () => cleanupIcons.current?.(), []);
+
+  const handleClick = useCallback(
+    async (e: MapLayerMouseEvent) => {
+      const features = e.features ?? [];
+      const station = features.find((f) => f.layer.id === LAYER.stations);
+      if (station) {
+        // Look the station up by id rather than trusting f.properties:
+        // MapLibre stringifies array properties such as nextDates.
+        onSelectStation(String(station.properties.id));
+        return;
+      }
+      const cluster = features.find((f) => f.layer.id === LAYER.clusters);
+      if (cluster && cluster.geometry.type === "Point") {
+        const map = mapRef.current?.getMap();
+        const source = map?.getSource("stations") as GeoJSONSource | undefined;
+        if (!map || !source) return;
+        const zoom = await source.getClusterExpansionZoom(Number(cluster.properties.cluster_id));
+        map.easeTo({
+          center: cluster.geometry.coordinates as [number, number],
+          zoom,
+          duration: reducedMotion() ? 0 : 500,
+        });
+        return;
+      }
+      const kreis = features.find((f) => f.layer.id === LAYER.kreisFill);
+      onSelectKreis(kreis ? Number(kreis.properties.kreis) : null);
+    },
+    [mapRef, onSelectKreis, onSelectStation],
+  );
+
+  return (
+    <Map
+      ref={mapRef}
+      initialViewState={initialView}
+      minZoom={11}
+      maxZoom={18}
+      maxBounds={[ZH_BOUNDS[0] - 0.05, ZH_BOUNDS[1] - 0.03, ZH_BOUNDS[2] + 0.05, ZH_BOUNDS[3] + 0.03]}
+      mapStyle={styleUrl}
+      style={{ position: "absolute", inset: 0 }}
+      attributionControl={false}
+      dragRotate={false}
+      touchPitch={false}
+      interactiveLayerIds={INTERACTIVE}
+      cursor={hovering ? "pointer" : "grab"}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      onClick={handleClick}
+      onLoad={() => {
+        handleStyle();
+        // re-apply after style swaps (dev style switcher)
+        mapRef.current?.getMap().on("style.load", handleStyle);
+        onLoad();
+      }}
+      onError={(e) => onError(e.error?.message ?? "Kartenfehler")}
+    >
+      <AttributionControl position="bottom-right" compact={false} customAttribution={DATA_ATTRIBUTION} />
+      <NavigationControl position="bottom-right" showCompass={false} />
+
+      {styleReady && kreise && (
+        <Source id="kreise" type="geojson" data={kreise}>
+          <Layer {...kreisFill(activeKreis)} />
+          <Layer {...kreisLine(activeKreis)} />
+          {font && <Layer {...kreisLabel(font)} />}
+        </Source>
+      )}
+
+      {styleReady && stations && (
+        <Source
+          id="stations"
+          type="geojson"
+          data={stations}
+          cluster
+          clusterRadius={40}
+          clusterMaxZoom={14}
+        >
+          <Layer {...clusterCircle} />
+          {font && <Layer {...clusterCount(font)} />}
+          <Layer {...stationHalo(selectedStationId)} />
+          <Layer {...stationSymbol} />
+        </Source>
+      )}
+
+      {userLocation && (
+        <Marker longitude={userLocation.lng} latitude={userLocation.lat} anchor="center">
+          <span
+            aria-label="Dein Standort"
+            className="block h-4 w-4 rounded-full border-[3px] border-white bg-[#2563EB] shadow-[0_0_0_6px_rgba(37,99,235,0.2)]"
+          />
+        </Marker>
+      )}
+    </Map>
+  );
+}

@@ -1,0 +1,220 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.5287,
+          47.3735
+        ]
+      },
+      "properties": {
+        "id": "mrh-stauffacher",
+        "kind": "mrh",
+        "name": "Stauffacher",
+        "kreis": 4,
+        "plz": "8004",
+        "nextDates": [
+          "2026-10-02",
+          "2026-10-06"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.5256,
+          47.3764
+        ]
+      },
+      "properties": {
+        "id": "mrh-helvetiaplatz",
+        "kind": "mrh",
+        "name": "Helvetiaplatz",
+        "kreis": 4,
+        "plz": "8004",
+        "nextDates": [
+          "2026-10-09"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.532,
+          47.3847
+        ]
+      },
+      "properties": {
+        "id": "mrh-limmatplatz",
+        "kind": "mrh",
+        "name": "Limmatplatz",
+        "kreis": 5,
+        "plz": "8005",
+        "nextDates": [
+          "2026-10-03"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.541,
+          47.39
+        ]
+      },
+      "properties": {
+        "id": "mrh-schaffhauserplatz",
+        "kind": "mrh",
+        "name": "Schaffhauserplatz",
+        "kreis": 6,
+        "plz": "8057",
+        "nextDates": [
+          "2026-10-14"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.562,
+          47.362
+        ]
+      },
+      "properties": {
+        "id": "mrh-hegibachplatz",
+        "kind": "mrh",
+        "name": "Hegibachplatz",
+        "kreis": 7,
+        "plz": "8032",
+        "nextDates": [
+          "2026-10-17"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.5445,
+          47.4105
+        ]
+      },
+      "properties": {
+        "id": "mrh-marktplatz-oerlikon",
+        "kind": "mrh",
+        "name": "Marktplatz Oerlikon",
+        "kreis": 11,
+        "plz": "8050",
+        "nextDates": [
+          "2026-10-21"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.5317,
+          47.3977
+        ]
+      },
+      "properties": {
+        "id": "hazmat-bucheggplatz",
+        "kind": "hazmat",
+        "name": "Bucheggplatz",
+        "kreis": 10,
+        "plz": "8037",
+        "nextDates": [
+          "2026-10-10"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.5105,
+          47.3783
+        ]
+      },
+      "properties": {
+        "id": "hazmat-albisriederplatz",
+        "kind": "hazmat",
+        "name": "Albisriederplatz",
+        "kreis": 4,
+        "plz": "8004",
+        "nextDates": [
+          "2026-10-24"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.522,
+          47.3708
+        ]
+      },
+      "properties": {
+        "id": "sst-idaplatz",
+        "kind": "sammelstelle",
+        "name": "Idaplatz",
+        "kreis": 3,
+        "plz": "8003",
+        "materials": [
+          "glass",
+          "metal"
+        ],
+        "placeholder": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.519,
+          47.379
+        ]
+      },
+      "properties": {
+        "id": "sst-bullingerplatz",
+        "kind": "sammelstelle",
+        "name": "Bullingerplatz",
+        "kreis": 4,
+        "plz": "8004",
+        "materials": [
+          "glass",
+          "metal",
+          "textiles",
+          "oil"
+        ],
+        "placeholder": true
+      }
+    }
+  ]
+}
