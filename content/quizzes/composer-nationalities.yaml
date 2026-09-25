@@ -1,0 +1,81 @@
+slug: composer-nationalities
+title: Composer Nationalities
+description: >-
+  Which country was each famous classical composer actually from?
+  A few of these surprise people.
+category: Music & Culture
+thumbnailUrl: https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=400
+coverImageUrl: https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=1600
+
+questions:
+  - key: beethoven
+    prompt: What nationality was Ludwig van Beethoven?
+    choices:
+      - text: Austrian
+      - text: German
+        correct: true
+      - text: Dutch
+      - text: Belgian
+
+  - key: chopin
+    prompt: What nationality was Frédéric Chopin?
+    choices:
+      - text: French
+      - text: Russian
+      - text: Polish
+        correct: true
+      - text: Czech
+
+  - key: handel
+    prompt: What nationality was George Frideric Handel (later a naturalized British subject)?
+    choices:
+      - text: German
+        correct: true
+      - text: English
+      - text: Austrian
+      - text: Italian
+
+  - key: dvorak
+    prompt: What nationality was Antonín Dvořák?
+    choices:
+      - text: Hungarian
+      - text: Austrian
+      - text: Czech
+        correct: true
+      - text: Slovak
+
+  - key: sibelius
+    prompt: What nationality was Jean Sibelius?
+    choices:
+      - text: Swedish
+      - text: Norwegian
+      - text: Danish
+      - text: Finnish
+        correct: true
+
+  - key: verdi
+    prompt: What nationality was Giuseppe Verdi?
+    choices:
+      - text: Italian
+        correct: true
+      - text: Spanish
+      - text: French
+      - text: Portuguese
+
+  - key: grieg
+    prompt: What nationality was Edvard Grieg?
+    choices:
+      - text: Finnish
+      - text: Norwegian
+        correct: true
+      - text: Swedish
+      - text: Icelandic
+
+  - key: tchaikovsky
+    prompt: What nationality was Pyotr Ilyich Tchaikovsky?
+    choices:
+      - text: Ukrainian
+      - text: Polish
+      - text: Russian
+        correct: true
+      - text: Belarusian

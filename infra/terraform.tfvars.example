@@ -1,0 +1,3 @@
+project_name = "your-startup"
+aws_region   = "eu-central-1"
+ses_domain   = "mail.yourstartup.com"

@@ -1,0 +1,72 @@
+slug: decade-born
+title: What Decade Were They Born?
+description: >-
+  Guess the decade of birth for these well-known historical and
+  contemporary figures.
+category: History
+thumbnailUrl: https://images.unsplash.com/photo-1447069387593-a5de0862481e?w=400
+coverImageUrl: https://images.unsplash.com/photo-1447069387593-a5de0862481e?w=1600
+
+questions:
+  - key: einstein
+    prompt: Albert Einstein (physicist) was born in which decade?
+    choices:
+      - text: 1860s
+      - text: 1870s
+        correct: true
+      - text: 1880s
+      - text: 1890s
+
+  - key: curie
+    prompt: Marie Curie (physicist and chemist) was born in which decade?
+    choices:
+      - text: 1850s
+      - text: 1860s
+        correct: true
+      - text: 1870s
+      - text: 1880s
+
+  - key: mandela
+    prompt: Nelson Mandela (statesman) was born in which decade?
+    choices:
+      - text: 1900s
+      - text: 1910s
+        correct: true
+      - text: 1920s
+      - text: 1930s
+
+  - key: king
+    prompt: Martin Luther King Jr. (civil rights leader) was born in which decade?
+    choices:
+      - text: 1920s
+      - text: 1930s
+        correct: true
+      - text: 1940s
+      - text: 1910s
+
+  - key: earhart
+    prompt: Amelia Earhart (aviator) was born in which decade?
+    choices:
+      - text: 1880s
+      - text: 1890s
+        correct: true
+      - text: 1900s
+      - text: 1870s
+
+  - key: hawking
+    prompt: Stephen Hawking (physicist) was born in which decade?
+    choices:
+      - text: 1930s
+      - text: 1940s
+        correct: true
+      - text: 1950s
+      - text: 1920s
+
+  - key: turing
+    prompt: Alan Turing (mathematician, computer scientist) was born in which decade?
+    choices:
+      - text: 1900s
+      - text: 1910s
+        correct: true
+      - text: 1920s
+      - text: 1890s

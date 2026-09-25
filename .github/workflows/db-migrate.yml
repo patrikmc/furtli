@@ -1,0 +1,70 @@
+name: DB migrate (Neon)
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "packages/db/migrations/**"
+      - "content/quizzes/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "GitHub environment holding the DB secret"
+        type: choice
+        options: [test]
+        default: test
+      seed:
+        description: "Also run pnpm db:seed (idempotent)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: db-migrate-${{ inputs.environment || 'test' }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'test' }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: fail fast if the secret is missing
+        run: |
+          if [ -z "$DATABASE_URL_UNPOOLED" ]; then
+            echo "::error::DATABASE_URL_UNPOOLED is not set on the environment"
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: apply migrations
+        run: pnpm db:migrate
+
+      - name: decide whether to seed
+        id: content
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "seed=${{ inputs.seed }}" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" 2>/dev/null | grep -q '^content/quizzes/' \
+               || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "seed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "seed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: seed quiz content
+        if: steps.content.outputs.seed == 'true'
+        run: pnpm db:seed

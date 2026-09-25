@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# env files — never commit real secrets
+.env
+.env.local
+.env.*.local
+!*.env.example
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+backend.hcl
+!*.tfvars.example
+!*.hcl.example
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored — commit it.
+
+# OS / editor
+.DS_Store
+*.swp
+
+# turbo/pnpm
+.turbo/
+.neon
+
+# Neon agents
+.agents/
+skills-lock.json
+
+# Claude
+Claude_outputs/
+Claude outputs/
