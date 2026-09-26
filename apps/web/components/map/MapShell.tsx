@@ -1,26 +1,44 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapRef } from "react-map-gl/maplibre";
+import {
+  type Anchor,
+  type NearbyMode,
+  areaBounds,
+  circlePolygon,
+  distanceMeters,
+  distanceToArea,
+  kreisForPoint,
+  nearby,
+  resolveAnchor,
+} from "geo";
 
-import type { InitialView } from "./ZurichMap";
-import { ZH_CENTER, kreisForPoint } from "@/lib/geo/kreis";
-import { STATION_KINDS, type KreisFeature, type StationCollection, type StationKind } from "@/lib/geo/types";
-import Link from "next/link";
+import { type Radius, type SearchState, writeSearchParams } from "@/lib/geo/anchor";
+import { toPoints, todayZurich } from "@/lib/geo/group";
+import { ZH_CENTER } from "@/lib/geo/kreis";
+import { STATION_KINDS, type PlzCalendar, type StationCollection, type StationKind } from "@/lib/geo/types";
 import { DEFAULT_BASEMAP, allBasemaps, type Basemap } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
-import { LocateButton, type LocateResult } from "./LocateButton";
+import { HintToast, LocateButton, LocateInline, type LocateResult, useLocate } from "./LocateButton";
+import { NearbyPanel } from "./NearbyPanel";
+import { PlacePicker } from "./PlacePicker";
 import { StationSheet } from "./StationSheet";
 import { TypeFilterChips } from "./TypeFilterChips";
 import { useMapData } from "./useMapData";
+import type { InitialView, MapPin } from "./ZurichMap";
 
 // MapLibre needs `window`, so the map itself never renders on the server.
 const ZurichMap = dynamic(() => import("./ZurichMap"), { ssr: false });
 
 interface Props {
-  initialKreis: number | null;
+  /** Search location, scope and radius from the URL (?at= / ?plz= / ?kreis=, &scope=, &r=). */
+  initialSearch: SearchState;
   initialStationId: string | null;
+  /** The 24 city postcodes (for the picker). */
+  cityPlz: readonly string[];
   /** Base map for this route; "/" uses the env default, /maptiler a MapTiler style. */
   basemap?: Basemap;
   /** Show which base map is active (on comparison routes). */
@@ -28,8 +46,9 @@ interface Props {
 }
 
 export default function MapShell({
-  initialKreis,
+  initialSearch,
   initialStationId,
+  cityPlz,
   basemap = DEFAULT_BASEMAP,
   showBasemapBadge = false,
 }: Props) {
@@ -40,14 +59,16 @@ export default function MapShell({
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
-  const { stations: allStations, kreise, error: dataError } = useMapData();
+  const { stations: allStations, areas, error: dataError } = useMapData();
 
-  const [kinds, setKinds] = useState<StationKind[]>([...STATION_KINDS]);
-  const [kreis, setKreis] = useState<number | null>(initialKreis);
+  const [search, setSearch] = useState<SearchState>(initialSearch);
   const [stationId, setStationId] = useState<string | null>(initialStationId);
-  const [userLocation, setUserLocation] = useState<LocateResult | null>(null);
+  const [kinds, setKinds] = useState<StationKind[]>([...STATION_KINDS]);
   const [hint, setHint] = useState<string | null>(null);
+  const [calendar, setCalendar] = useState<PlzCalendar | null>(null);
+  const today = useMemo(() => todayZurich(), []);
 
+  // ---- derived data -----------------------------------------------------------
   const stations = useMemo<StationCollection | null>(
     () =>
       allStations && {
@@ -57,118 +78,184 @@ export default function MapShell({
     [allStations, kinds],
   );
 
+  const resolved = useMemo(
+    () => (search.anchor && areas ? resolveAnchor(search.anchor, areas.kreise, areas.plz) : null),
+    [search.anchor, areas],
+  );
+
+  const results = useMemo(
+    () => (resolved && stations ? nearby(toPoints(stations.features), resolved, search) : []),
+    [resolved, stations, search],
+  );
+
   const selectedStation = useMemo(
     () => allStations?.features.find((f) => f.properties.id === stationId) ?? null,
     [allStations, stationId],
   );
+  const selectedDistance = useMemo(() => {
+    if (!selectedStation || !resolved) return undefined;
+    const [lng, lat] = selectedStation.geometry.coordinates;
+    const a = resolved.anchor;
+    return a.type === "point" ? distanceMeters(a, { lng, lat }) : distanceToArea({ lng, lat }, resolved.area!);
+  }, [selectedStation, resolved]);
+
   const hasPlaceholders = allStations?.features.some((f) => f.properties.placeholder) ?? false;
 
-  // ---- URL state: /?kreis=4&station=mrh-stauffacher -----------------------
+  // Map overlays for the search
+  const pin: MapPin | null =
+    search.anchor?.type === "point"
+      ? { lng: search.anchor.lng, lat: search.anchor.lat, source: search.anchor.source === "gps" ? "gps" : "map" }
+      : null;
+  const focusArea = resolved ? (resolved.area ?? (search.mode === "strict" ? resolved.strictArea : null)) : null;
+  const radiusCircle = useMemo(
+    () =>
+      search.anchor?.type === "point" && search.mode === "nearby" ? circlePolygon(search.anchor, search.radius) : null,
+    [search],
+  );
+  const highlightIds = useMemo(
+    () => (resolved ? results.map((r) => r.item.f.properties.id) : null),
+    [resolved, results],
+  );
+
+  // ---- kerbside dates for the anchor's postcode ----------------------------------
+  const anchorPlz = resolved?.plz ?? null;
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (kreis) params.set("kreis", String(kreis));
-    else params.delete("kreis");
+    if (!anchorPlz) return;
+    const ctrl = new AbortController();
+    fetch(`/api/calendar?plz=${anchorPlz}`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<PlzCalendar>) : null))
+      .then((c) => setCalendar(c && Object.keys(c.next).length ? c : null))
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [anchorPlz]);
+  const shownCalendar = calendar && calendar.plz === anchorPlz ? calendar : null;
+
+  // ---- URL state ---------------------------------------------------------------------
+  useEffect(() => {
+    const params = writeSearchParams(new URLSearchParams(window.location.search), search);
     if (stationId) params.set("station", stationId);
     else params.delete("station");
     const qs = params.toString();
-    const url = qs ? `?${qs}` : window.location.pathname;
     // Next.js integrates native replaceState with its router, without a server round trip.
-    window.history.replaceState(null, "", url);
-  }, [kreis, stationId]);
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, [search, stationId]);
 
-  // ---- camera ---------------------------------------------------------------
+  // ---- camera -------------------------------------------------------------------------
+  // Centre points in the part of the map the sheet/panel doesn't cover.
   const flyTo = useCallback((lng: number, lat: number, zoom: number) => {
-    mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: reducedMotion() ? 0 : 900 });
+    mapRef.current?.flyTo({ center: [lng, lat], zoom, padding: panelPadding(), duration: reducedMotion() ? 0 : 900 });
   }, []);
 
-  // Deep link (?station= / ?kreis=): computed once, before the map mounts,
-  // so the first frame already shows the right place (no post-load jump).
-  // allStations/kreise are set once and the initial* props never change,
-  // so this is computed exactly once.
+  // Deep link: computed once, before the map mounts, so the first frame already
+  // shows the right place. stations/areas are set once, initial* never change.
   const initialView = useMemo<InitialView | null>(() => {
-    if (!allStations || !kreise) return null;
+    if (!allStations || !areas) return null;
     const station = allStations.features.find((f) => f.properties.id === initialStationId);
-    const kreisFeature = kreise.features.find((k) => k.properties.kreis === initialKreis);
     if (station) {
       const [longitude, latitude] = station.geometry.coordinates;
-      return { longitude, latitude, zoom: 15 };
+      return { longitude, latitude, zoom: 15, padding: panelPadding() };
     }
-    if (kreisFeature) return { bounds: bbox(kreisFeature), fitBoundsOptions: { padding: panelPadding() } };
+    const a = initialSearch.anchor;
+    if (a?.type === "point") return { longitude: a.lng, latitude: a.lat, zoom: 14, padding: panelPadding() };
+    if (a) {
+      const r = resolveAnchor(a, areas.kreise, areas.plz);
+      if (r?.area) return { bounds: areaBounds(r.area), fitBoundsOptions: { padding: panelPadding() } };
+    }
     return { ...ZH_CENTER, zoom: 12 };
-  }, [allStations, kreise, initialStationId, initialKreis]);
+  }, [allStations, areas, initialStationId, initialSearch]);
 
-  // ---- handlers -------------------------------------------------------------
+  // ---- handlers ----------------------------------------------------------------------
+  const setAnchor = useCallback((anchor: Anchor | null) => {
+    setSearch((s) => ({ ...s, anchor }));
+    setStationId(null);
+    setHint(null);
+  }, []);
+
+  const pickPoint = useCallback(
+    (lng: number, lat: number) => setAnchor({ type: "point", lng, lat, source: "map" }),
+    [setAnchor],
+  );
+
+  const pickArea = useCallback(
+    (a: Anchor) => {
+      setAnchor(a);
+      const r = areas && resolveAnchor(a, areas.kreise, areas.plz);
+      if (r?.area) {
+        const [w, s, e, n] = areaBounds(r.area);
+        mapRef.current?.fitBounds(
+          [
+            [w, s],
+            [e, n],
+          ],
+          { padding: panelPadding(), duration: reducedMotion() ? 0 : 900 },
+        );
+      }
+    },
+    [areas, setAnchor],
+  );
+
+  const onLocate = useCallback(
+    ({ lng, lat }: LocateResult) => {
+      if (areas && kreisForPoint(lng, lat, areas.kreise) === null) {
+        setHint("Du bist ausserhalb der Stadt Zürich. Tippe auf die Karte, um einen Ort zu wählen.");
+        return;
+      }
+      setAnchor({ type: "point", lng, lat, source: "gps" });
+      flyTo(lng, lat, 14.5);
+    },
+    [areas, flyTo, setAnchor],
+  );
+
   const selectStation = useCallback(
     (id: string) => {
       const f = allStations?.features.find((s) => s.properties.id === id);
       if (!f) return;
       setStationId(id);
-      setKreis(f.properties.kreis);
       const [lng, lat] = f.geometry.coordinates;
-      const zoom = Math.max(mapRef.current?.getZoom() ?? 12, 14.5);
-      flyTo(lng, lat, zoom);
+      flyTo(lng, lat, Math.max(mapRef.current?.getZoom() ?? 12, 14.5));
     },
     [allStations, flyTo],
-  );
-
-  const selectKreis = useCallback((n: number | null) => {
-    setStationId(null);
-    setKreis(n);
-  }, []);
-
-  const onLocate = useCallback(
-    ({ lng, lat }: LocateResult) => {
-      setUserLocation({ lng, lat });
-      const k = kreise ? kreisForPoint(lng, lat, kreise) : null;
-      if (k === null) {
-        setHint("Du bist ausserhalb der Stadt Zürich.");
-        return;
-      }
-      setStationId(null);
-      setKreis(k);
-      flyTo(lng, lat, 14);
-    },
-    [kreise, flyTo],
   );
 
   const toggleKind = useCallback((k: StationKind) => {
     setKinds((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
   }, []);
 
-  const closeSheet = useCallback(() => {
-    setStationId(null);
-    setKreis(null);
-  }, []);
+  const setMode = useCallback((mode: NearbyMode) => setSearch((s) => ({ ...s, mode })), []);
+  const setRadius = useCallback((radius: Radius) => setSearch((s) => ({ ...s, radius, mode: "nearby" })), []);
 
-  const kreisStations = useMemo(
-    () =>
-      kreis && stations
-        ? stations.features
-            .filter((f) => f.properties.kreis === kreis)
-            .sort((a, b) => (a.properties.nextDates?.[0] ?? "9").localeCompare(b.properties.nextDates?.[0] ?? "9"))
-        : [],
-    [kreis, stations],
+  const { locate, busy: locating } = useLocate(onLocate, setHint);
+  const picker = (
+    <PlacePicker
+      cityPlz={cityPlz}
+      anchor={search.anchor}
+      onPick={pickArea}
+      locate={<LocateInline locate={locate} busy={locating} />}
+      compact
+    />
   );
 
-  // ---- render ---------------------------------------------------------------
+  // ---- render -------------------------------------------------------------------------
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#E9ECE8]">
       {initialView && (
-      <ZurichMap
-        mapRef={mapRef}
-        initialView={initialView}
-        styleUrl={active.url}
-        provider={active.provider}
-        kreise={kreise}
-        stations={stations}
-        activeKreis={kreis}
-        selectedStationId={stationId}
-        userLocation={userLocation}
-        onSelectStation={selectStation}
-        onSelectKreis={selectKreis}
-        onLoad={() => setMapReady(true)}
-        onError={(m) => setMapError(m)}
-      />
+        <ZurichMap
+          mapRef={mapRef}
+          initialView={initialView}
+          styleUrl={active.url}
+          provider={active.provider}
+          kreise={areas?.kreise ?? null}
+          stations={stations}
+          selectedStationId={stationId}
+          onSelectStation={selectStation}
+          onPickPoint={pickPoint}
+          pin={pin}
+          focusArea={focusArea}
+          radiusCircle={radiusCircle}
+          highlightIds={highlightIds}
+          onLoad={() => setMapReady(true)}
+          onError={(m) => setMapError(m)}
+        />
       )}
 
       {/* Top bar: brand, sample-data badge, filters */}
@@ -187,10 +274,7 @@ export default function MapShell({
             </span>
           )}
           {showBasemapBadge && (
-            <span
-              data-testid="basemap-badge"
-              className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-white"
-            >
+            <span data-testid="basemap-badge" className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-white">
               {active.label}
             </span>
           )}
@@ -199,19 +283,45 @@ export default function MapShell({
         <TypeFilterChips active={kinds} onToggle={toggleKind} />
       </header>
 
-      <LocateButton onLocate={onLocate} hint={hint} setHint={setHint} />
+      <LocateButton locate={locate} busy={locating} />
+      <HintToast hint={hint} onDismiss={() => setHint(null)} />
 
       {selectedStation ? (
-        <StationSheet mode="station" station={selectedStation} onClose={closeSheet} />
-      ) : kreis ? (
         <StationSheet
-          mode="kreis"
-          kreis={kreis}
-          stations={kreisStations}
-          onSelectStation={selectStation}
-          onClose={closeSheet}
+          station={selectedStation}
+          distance={selectedDistance}
+          anchorPlz={anchorPlz}
+          onBack={resolved ? () => setStationId(null) : undefined}
+          onClose={() => setStationId(null)}
         />
-      ) : null}
+      ) : resolved ? (
+        <NearbyPanel
+          resolved={resolved}
+          results={results}
+          mode={search.mode}
+          radius={search.radius}
+          today={today}
+          calendar={shownCalendar}
+          picker={picker}
+          onModeChange={setMode}
+          onRadiusChange={setRadius}
+          onSelectStation={selectStation}
+          onClose={() => setAnchor(null)}
+        />
+      ) : (
+        mapReady && (
+          <div
+            data-testid="start-card"
+            className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 rounded-3xl bg-paper px-4 py-3.5 shadow-[0_8px_30px_rgba(23,34,59,0.18)] md:inset-x-auto md:top-[7.5rem] md:bottom-auto md:left-4 md:w-[26rem]"
+          >
+            <p className="font-display text-lg leading-tight font-bold text-ink">Was gibt&apos;s in deiner Nähe?</p>
+            <p className="mt-0.5 mb-2.5 text-sm text-ink/65">
+              Tippe auf die Karte (z.&nbsp;B. bei dir zuhause), nutze deinen Standort oder wähle PLZ oder Kreis.
+            </p>
+            {picker}
+          </div>
+        )
+      )}
 
       {/* Loading skeleton / errors (the style is fetched client-side and can be slow) */}
       {!mapReady && !mapError && (
@@ -260,18 +370,11 @@ function DevStylePicker({ active, onPick }: { active: Basemap; onPick: (b: Basem
   );
 }
 
-/** Keep the framed Kreis clear of the top bar and the sheet/side panel. */
+/** Keep a framed area or centred point clear of the top bar and the sheet/side panel. */
 function panelPadding() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   return w >= 768
-    ? { top: 130, left: 430, right: 60, bottom: 40 }
-    : { top: 130, left: 20, right: 20, bottom: Math.round(h * 0.45) };
-}
-
-function bbox(f: KreisFeature): [number, number, number, number] {
-  const coords = (f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates).flat(2);
-  const lngs = coords.map((c) => c[0]);
-  const lats = coords.map((c) => c[1]);
-  return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+    ? { top: 110, left: 450, right: 60, bottom: 40 }
+    : { top: 120, left: 20, right: 20, bottom: Math.round(h * 0.55) };
 }

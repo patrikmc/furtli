@@ -26,6 +26,15 @@ importers:
       '@turf/boolean-point-in-polygon':
         specifier: ^7.4.0
         version: 7.4.0
+      db:
+        specifier: workspace:*
+        version: link:../../packages/db
+      geo:
+        specifier: workspace:*
+        version: link:../../packages/geo
+      ingest:
+        specifier: workspace:*
+        version: link:../../packages/ingest
       maplibre-gl:
         specifier: ^5.24.0
         version: 5.24.0
@@ -118,6 +127,50 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.0(@types/node@22.20.2)(happy-dom@20.14.3)(vite@8.3.0(@types/node@22.20.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/geo:
+    dependencies:
+      '@turf/boolean-point-in-polygon':
+        specifier: ^7.4.0
+        version: 7.4.0
+    devDependencies:
+      '@types/geojson':
+        specifier: ^7946.0.16
+        version: 7946.0.16
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.0(@types/node@22.20.2)(happy-dom@20.14.3)(vite@8.3.0(@types/node@22.20.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
+  packages/ingest:
+    dependencies:
+      db:
+        specifier: workspace:*
+        version: link:../db
+      geo:
+        specifier: workspace:*
+        version: link:../geo
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.2
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       tsx:
         specifier: ^4.23.13
         version: 4.23.13

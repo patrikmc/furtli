@@ -1,24 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KREISE_URL, getStations } from "@/lib/geo/stations";
-import type { KreisCollection, StationCollection } from "@/lib/geo/types";
+import { type Areas, loadAreas } from "@/lib/geo/areas";
+import { getStations } from "@/lib/geo/stations";
+import type { StationCollection } from "@/lib/geo/types";
 
-/** Loads stations (via getStations) and the Kreis polygons once. */
+/** Loads stations (via getStations → /api/stations) and the Kreis/postcode outlines once. */
 export function useMapData() {
   const [stations, setStations] = useState<StationCollection | null>(null);
-  const [kreise, setKreise] = useState<KreisCollection | null>(null);
+  const [areas, setAreas] = useState<Areas | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    Promise.all([
-      getStations(ctrl.signal),
-      fetch(KREISE_URL, { signal: ctrl.signal }).then((r) => r.json() as Promise<KreisCollection>),
-    ])
-      .then(([s, k]) => {
+    Promise.all([getStations(ctrl.signal), loadAreas()])
+      .then(([s, a]) => {
         setStations(s);
-        setKreise(k);
+        setAreas(a);
       })
       .catch((e) => {
         if (!ctrl.signal.aborted) setError(String(e?.message ?? e));
@@ -26,5 +24,5 @@ export function useMapData() {
     return () => ctrl.abort();
   }, []);
 
-  return { stations, kreise, error };
+  return { stations, areas, kreise: areas?.kreise ?? null, error };
 }

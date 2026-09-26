@@ -102,11 +102,9 @@ export default function CompareView({ leftId, rightId }: Props) {
           provider={basemap.provider}
           kreise={kreise}
           stations={stations}
-          activeKreis={kreis}
           selectedStationId={stationId}
-          userLocation={null}
           onSelectStation={selectStation}
-          onSelectKreis={selectKreis}
+          focusArea={kreis && kreise ? (kreise.features.find((f) => f.properties.kreis === kreis) ?? null) : null}
           onLoad={() => onLoad(side)}
           onError={() => {}}
           onMove={(e) => sync(side, e)}

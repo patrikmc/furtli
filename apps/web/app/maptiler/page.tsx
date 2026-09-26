@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import MapShell from "@/components/map/MapShell";
 import { MissingKeyNotice } from "@/components/compare/MissingKeyNotice";
-import { parseKreisParam } from "@/lib/geo/kreis";
+import { CITY_PLZ } from "geo/data";
+import { parseSearchParams } from "@/lib/geo/anchor";
 import { maptilerBasemap } from "@/lib/map-config";
 
 export const metadata: Metadata = {
@@ -20,8 +21,9 @@ export default async function MapTilerPage({ searchParams }: PageProps<"/maptile
   const station = typeof sp.station === "string" && sp.station.length <= 80 ? sp.station : null;
   return (
     <MapShell
-      initialKreis={parseKreisParam(sp.kreis)}
+      initialSearch={parseSearchParams(sp, CITY_PLZ)}
       initialStationId={station}
+      cityPlz={CITY_PLZ}
       basemap={basemap}
       showBasemapBadge
     />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import Map, {
   AttributionControl,
   Layer,
@@ -12,6 +12,8 @@ import Map, {
   type ViewStateChangeEvent,
 } from "react-map-gl/maplibre";
 import type { GeoJSONSource, Map as MaplibreMap } from "maplibre-gl";
+import type { Feature, Polygon } from "geojson";
+import type { AreaGeometry } from "geo";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import type { KreisCollection, StationCollection } from "@/lib/geo/types";
@@ -23,16 +25,31 @@ import {
   LAYER,
   clusterCircle,
   clusterCount,
+  focusFill,
+  focusLine,
   kreisFill,
   kreisLabel,
   kreisLine,
+  radiusFill,
+  radiusLine,
   stationHalo,
   stationSymbol,
 } from "./layers";
 
+type Padding = { top: number; left: number; right: number; bottom: number };
 export type InitialView =
-  | { longitude: number; latitude: number; zoom: number }
-  | { bounds: [number, number, number, number]; fitBoundsOptions?: { padding: number | { top: number; left: number; right: number; bottom: number } } };
+  | { longitude: number; latitude: number; zoom: number; padding?: Padding }
+  | {
+      bounds: [number, number, number, number];
+      fitBoundsOptions?: { padding: number | Padding };
+    };
+
+export interface MapPin {
+  lng: number;
+  lat: number;
+  /** "gps": the user's location (blue dot); "map": a picked point (pin). */
+  source: "gps" | "map";
+}
 
 export interface ZurichMapProps {
   mapRef: RefObject<MapRef | null>;
@@ -40,13 +57,20 @@ export interface ZurichMapProps {
   styleUrl: string;
   kreise: KreisCollection | null;
   stations: StationCollection | null;
-  activeKreis: number | null;
   selectedStationId: string | null;
-  userLocation: { lng: number; lat: number } | null;
   onSelectStation: (id: string) => void;
-  onSelectKreis: (kreis: number | null) => void;
   onLoad: () => void;
   onError: (message: string) => void;
+  /** Tap on the map outside a station: pick this point as the search location. */
+  onPickPoint?: (lng: number, lat: number) => void;
+  /** The search location; draggable when onPickPoint is set. */
+  pin?: MapPin | null;
+  /** Kreis or postcode outline to highlight. */
+  focusArea?: Feature<AreaGeometry> | null;
+  /** Search radius around the pin. */
+  radiusCircle?: Polygon | null;
+  /** Stations in the current results; others are dimmed. null = no search. */
+  highlightIds?: string[] | null;
   /** Used to show provider-required branding (MapTiler logo). */
   provider?: BasemapProvider;
   /** Fires on every camera change; `e.originalEvent` is set for user gestures. */
@@ -57,7 +81,7 @@ export interface ZurichMapProps {
   showNavigation?: boolean;
 }
 
-const INTERACTIVE = [LAYER.stations, LAYER.clusters, LAYER.kreisFill];
+const INTERACTIVE = [LAYER.stations, LAYER.clusters];
 
 /** First text font the base style uses — so our labels load glyphs any provider actually has. */
 function detectFont(map: MaplibreMap): string[] | null {
@@ -74,13 +98,15 @@ export default function ZurichMap({
   styleUrl,
   kreise,
   stations,
-  activeKreis,
   selectedStationId,
-  userLocation,
   onSelectStation,
-  onSelectKreis,
   onLoad,
   onError,
+  onPickPoint,
+  pin = null,
+  focusArea = null,
+  radiusCircle = null,
+  highlightIds = null,
   provider,
   onMove,
   onMoveEnd,
@@ -131,10 +157,15 @@ export default function ZurichMap({
         });
         return;
       }
-      const kreis = features.find((f) => f.layer.id === LAYER.kreisFill);
-      onSelectKreis(kreis ? Number(kreis.properties.kreis) : null);
+      onPickPoint?.(+e.lngLat.lng.toFixed(6), +e.lngLat.lat.toFixed(6));
     },
-    [mapRef, onSelectKreis, onSelectStation],
+    [mapRef, onPickPoint, onSelectStation],
+  );
+
+  const focusData = useMemo(() => (focusArea ? { type: "FeatureCollection" as const, features: [focusArea] } : null), [focusArea]);
+  const radiusData = useMemo(
+    () => (radiusCircle ? { type: "Feature" as const, geometry: radiusCircle, properties: {} } : null),
+    [radiusCircle],
   );
 
   return (
@@ -150,7 +181,7 @@ export default function ZurichMap({
       dragRotate={false}
       touchPitch={false}
       interactiveLayerIds={INTERACTIVE}
-      cursor={hovering ? "pointer" : "grab"}
+      cursor={hovering ? "pointer" : onPickPoint ? "crosshair" : "grab"}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       onClick={handleClick}
@@ -165,15 +196,30 @@ export default function ZurichMap({
       onMoveEnd={onMoveEnd}
       hash={hash}
     >
-      <AttributionControl position="bottom-right" compact={false} customAttribution={DATA_ATTRIBUTION} />
+      {/* Top-right, below the header: never hidden by the bottom sheet (A6). */}
+      <AttributionControl position="top-right" compact={false} customAttribution={DATA_ATTRIBUTION} />
       {showNavigation && <NavigationControl position="bottom-right" showCompass={false} />}
       {provider === "maptiler" && <MapTilerLogo />}
 
       {styleReady && kreise && (
         <Source id="kreise" type="geojson" data={kreise}>
-          <Layer {...kreisFill(activeKreis)} />
-          <Layer {...kreisLine(activeKreis)} />
+          <Layer {...kreisFill(null)} />
+          <Layer {...kreisLine(null)} />
           {font && <Layer {...kreisLabel(font)} />}
+        </Source>
+      )}
+
+      {styleReady && focusData && (
+        <Source id="focus" type="geojson" data={focusData}>
+          <Layer {...focusFill} />
+          <Layer {...focusLine} />
+        </Source>
+      )}
+
+      {styleReady && radiusData && (
+        <Source id="radius" type="geojson" data={radiusData}>
+          <Layer {...radiusFill} />
+          <Layer {...radiusLine} />
         </Source>
       )}
 
@@ -189,16 +235,42 @@ export default function ZurichMap({
           <Layer {...clusterCircle} />
           {font && <Layer {...clusterCount(font)} />}
           <Layer {...stationHalo(selectedStationId)} />
-          <Layer {...stationSymbol} />
+          <Layer {...stationSymbol(highlightIds)} />
         </Source>
       )}
 
-      {userLocation && (
-        <Marker longitude={userLocation.lng} latitude={userLocation.lat} anchor="center">
-          <span
-            aria-label="Dein Standort"
-            className="block h-4 w-4 rounded-full border-[3px] border-white bg-[#2563EB] shadow-[0_0_0_6px_rgba(37,99,235,0.2)]"
-          />
+      {pin && (
+        <Marker
+          longitude={pin.lng}
+          latitude={pin.lat}
+          anchor={pin.source === "gps" ? "center" : "bottom"}
+          draggable={!!onPickPoint}
+          onDragEnd={(e) => onPickPoint?.(+e.lngLat.lng.toFixed(6), +e.lngLat.lat.toFixed(6))}
+        >
+          {pin.source === "gps" ? (
+            <span
+              aria-label="Dein Standort"
+              data-testid="search-pin"
+              className="block h-4 w-4 rounded-full border-[3px] border-white bg-[#2563EB] shadow-[0_0_0_6px_rgba(37,99,235,0.2)]"
+            />
+          ) : (
+            <svg
+              aria-label="Gewählter Punkt (verschiebbar)"
+              data-testid="search-pin"
+              width="30"
+              height="40"
+              viewBox="0 0 30 40"
+              className="cursor-grab drop-shadow-md active:cursor-grabbing"
+            >
+              <path
+                d="M15 39s13-12.4 13-23A13 13 0 0 0 2 16c0 10.6 13 23 13 23z"
+                fill="#17223B"
+                stroke="#fff"
+                strokeWidth="2"
+              />
+              <circle cx="15" cy="16" r="5" fill="#E8512B" />
+            </svg>
+          )}
         </Marker>
       )}
     </Map>

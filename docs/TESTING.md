@@ -2,9 +2,9 @@
 
 | Layer | Tool | What it covers | Where | CI |
 | --- | --- | --- | --- | --- |
-| Unit | Vitest | Geo helpers: seed validation, point-in-Kreis, URL params | `apps/web/lib/**/*.test.ts` | Yes |
-| Component | Vitest + Testing Library | Detail sheet, filter chips | `apps/web/components/**/*.test.tsx` | Yes |
-| Integration | Vitest + real Postgres | DB queries (from step 2, ingestion) | `packages/db/src/*.integration.test.ts` | Yes (none yet) |
+| Unit | Vitest | Distances, areas, nearby (`packages/geo`); parsers + station matching (`packages/ingest`); URL state, grouping (`apps/web/lib`) | `**/*.test.ts` | Yes |
+| Component | Vitest + Testing Library | Nearby panel, detail sheet, filter chips | `apps/web/components/**/*.test.tsx` | Yes |
+| Integration | Vitest + real Postgres | The whole ingest pipeline with recorded Open Data Zürich responses: load, idempotency, corrections, failures | `packages/ingest/src/*.integration.test.ts` | Yes |
 | E2E | Playwright | Real browser, production build, mobile + desktop viewports | `apps/web/e2e/*.spec.ts` | Yes |
 
 ```bash

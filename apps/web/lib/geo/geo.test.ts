@@ -1,38 +1,13 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { kreisForPoint, parseKreisParam } from "./kreis";
+import { KREISE, PLZ, CITY_PLZ } from "geo/data";
+import { kreisForPoint, nearby, resolveAnchor } from "geo";
+import seed from "./data/stations.seed.json";
+import { anchorSubtitle, anchorTitle, parseSearchParams, writeSearchParams } from "./anchor";
+import { groupDates, groupPlaces, toPoints } from "./group";
+import { timeWindow } from "./kinds";
 import { getStations, nextUpcomingDate, parseStations } from "./stations";
-import type { KreisCollection } from "./types";
 
-const publicGeo = (f: string) => JSON.parse(readFileSync(join(__dirname, "../../public/geo", f), "utf8"));
-const kreise = publicGeo("stadtkreise.geojson") as KreisCollection;
-const seed = publicGeo("stations.seed.geojson");
-
-describe("stadtkreise.geojson", () => {
-  it("has all 12 Kreise, numbered 1–12, and stays small", () => {
-    expect(kreise.features.map((f) => f.properties.kreis).sort((a, b) => a - b)).toEqual(
-      Array.from({ length: 12 }, (_, i) => i + 1),
-    );
-    const bytes = readFileSync(join(__dirname, "../../public/geo/stadtkreise.geojson")).length;
-    expect(bytes).toBeLessThan(60_000);
-  });
-});
-
-describe("kreisForPoint", () => {
-  it("puts Stauffacher in Kreis 4", () => {
-    expect(kreisForPoint(8.5287, 47.3735, kreise)).toBe(4);
-  });
-  it("puts Paradeplatz in Kreis 1 and Oerlikon in Kreis 11", () => {
-    expect(kreisForPoint(8.5392, 47.3697, kreise)).toBe(1);
-    expect(kreisForPoint(8.5445, 47.4105, kreise)).toBe(11);
-  });
-  it("returns null outside the city (Winterthur)", () => {
-    expect(kreisForPoint(8.7241, 47.4988, kreise)).toBeNull();
-  });
-});
-
-describe("stations seed", () => {
+describe("stations seed (used without a database)", () => {
   const stations = parseStations(seed);
 
   it("parses all 10 placeholder stations", () => {
@@ -43,7 +18,7 @@ describe("stations seed", () => {
   it("every station's kreis matches the polygon it sits in", () => {
     for (const f of stations.features) {
       const [lng, lat] = f.geometry.coordinates;
-      expect(kreisForPoint(lng, lat, kreise), f.properties.id).toBe(f.properties.kreis);
+      expect(kreisForPoint(lng, lat, KREISE), f.properties.id).toBe(f.properties.kreis);
     }
   });
 });
@@ -57,11 +32,13 @@ describe("parseStations", () => {
     expect(parseStations({ type: "FeatureCollection", features: [valid, bad] }).features).toHaveLength(1);
   });
 
-  it("rejects duplicate ids", () => {
-    expect(() => parseStations({ type: "FeatureCollection", features: [valid, valid] })).toThrow(/Duplicate/);
+  it("accepts the Recyclinghof kind and API extras", () => {
+    const rh = { ...valid, properties: { ...valid.properties, id: "rh-x", kind: "recyclinghof", hours: { mo: "13:00–19:00" } } };
+    expect(parseStations({ type: "FeatureCollection", features: [rh] }).features).toHaveLength(1);
   });
 
-  it("rejects non-collections", () => {
+  it("rejects duplicate ids and non-collections", () => {
+    expect(() => parseStations({ type: "FeatureCollection", features: [valid, valid] })).toThrow(/Duplicate/);
     expect(() => parseStations({ foo: 1 })).toThrow();
   });
 });
@@ -69,43 +46,98 @@ describe("parseStations", () => {
 describe("getStations", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("fetches and validates the seed file", async () => {
+  it("fetches /api/stations and validates the response", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(seed)));
     vi.stubGlobal("fetch", fetchMock);
     const res = await getStations();
-    expect(fetchMock).toHaveBeenCalledWith("/geo/stations.seed.geojson", expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith("/api/stations", expect.anything());
     expect(res.features[0].properties.id).toBe("mrh-stauffacher");
   });
 });
 
-describe("helpers", () => {
-  it("parseKreisParam accepts 1–12 only", () => {
-    expect(parseKreisParam("4")).toBe(4);
-    expect(parseKreisParam("13")).toBeNull();
-    expect(parseKreisParam("4.5")).toBeNull();
-    expect(parseKreisParam(undefined)).toBeNull();
-    expect(parseKreisParam(["4"])).toBeNull();
+describe("URL search state", () => {
+  it("parses a picked point, radius and scope", () => {
+    expect(parseSearchParams({ at: "47.37350,8.52870", r: "500", scope: "area" }, CITY_PLZ)).toEqual({
+      anchor: { type: "point", lat: 47.3735, lng: 8.5287, source: "map" },
+      mode: "strict",
+      radius: 500,
+    });
   });
 
+  it("parses postcode and Kreis anchors; nearby and 1 km by default", () => {
+    expect(parseSearchParams({ plz: "8004" }, CITY_PLZ)).toEqual({
+      anchor: { type: "plz", plz: "8004" },
+      mode: "nearby",
+      radius: 1000,
+    });
+    expect(parseSearchParams({ kreis: "4" }, CITY_PLZ).anchor).toEqual({ type: "kreis", kreis: 4 });
+  });
+
+  it("ignores junk: unknown postcodes, points outside Zürich, odd radii", () => {
+    expect(parseSearchParams({ plz: "3000" }, CITY_PLZ).anchor).toBeNull();
+    expect(parseSearchParams({ at: "46.2,6.1" }, CITY_PLZ).anchor).toBeNull();
+    expect(parseSearchParams({ at: "47.37,8.52", r: "123" }, CITY_PLZ).radius).toBe(1000);
+  });
+
+  it("writes state back, and never writes a GPS position into the URL", () => {
+    const p = writeSearchParams(new URLSearchParams("station=x"), {
+      anchor: { type: "point", lat: 47.373501234, lng: 8.52871, source: "map" },
+      mode: "nearby",
+      radius: 2000,
+    });
+    expect(p.toString()).toBe("station=x&at=47.37350%2C8.52871&r=2000");
+    const gps = writeSearchParams(new URLSearchParams(), {
+      anchor: { type: "point", lat: 47.37, lng: 8.52, source: "gps" },
+      mode: "nearby",
+      radius: 1000,
+    });
+    expect(gps.toString()).toBe("");
+  });
+
+  it("titles anchors", () => {
+    expect(anchorTitle({ type: "point", lat: 47.37, lng: 8.52, source: "gps" })).toBe("Dein Standort");
+    expect(anchorTitle({ type: "point", lat: 47.37, lng: 8.52, source: "map" })).toBe("Gewählter Punkt");
+    expect(anchorTitle({ type: "plz", plz: "8004" })).toBe("PLZ 8004");
+    const r = resolveAnchor({ type: "point", lat: 47.3735, lng: 8.5287 }, KREISE, PLZ)!;
+    expect(anchorSubtitle(r)).toBe("Kreis 4 · 8004");
+  });
+});
+
+describe("grouping by distance", () => {
+  const stations = parseStations(seed);
+  const r = resolveAnchor({ type: "point", lat: 47.3735, lng: 8.5287 }, KREISE, PLZ)!; // Stauffacher
+  const results = nearby(toPoints(stations.features), r, { mode: "nearby", radius: 2000 });
+
+  it("groups places by band, nearest first", () => {
+    const groups = groupPlaces(results);
+    expect(groups[0].band).toBe(0);
+    expect(groups[0].items[0].item.f.properties.id).toBe("mrh-stauffacher");
+    const bands = groups.map((g) => g.band);
+    expect(bands).toEqual([...bands].sort((a, b) => a - b));
+  });
+
+  it("groups upcoming dates by band, soonest first, skipping past dates", () => {
+    const groups = groupDates(results, "2026-10-03");
+    const all = groups.flatMap((g) => g.items);
+    expect(all.every((d) => d.date >= "2026-10-03")).toBe(true);
+    expect(all.find((d) => d.date === "2026-10-02")).toBeUndefined(); // Stauffacher's first date has passed
+    for (const g of groups) {
+      const dates = g.items.map((i) => i.date);
+      expect(dates).toEqual([...dates].sort());
+    }
+  });
+});
+
+describe("helpers", () => {
   it("nextUpcomingDate skips past dates", () => {
     expect(nextUpcomingDate(["2026-10-06", "2026-10-02"], new Date("2026-10-03T08:00:00Z"))).toBe("2026-10-06");
     expect(nextUpcomingDate(["2026-01-01"], new Date("2026-10-03"))).toBeUndefined();
   });
-});
 
-describe("map-config", async () => {
-  const { maptilerBasemap } = await import("../map-config");
-
-  it("builds MapTiler presets only with a key", () => {
-    expect(maptilerBasemap("dataviz", "")).toBeNull();
-    const b = maptilerBasemap("streets-v2", "abc")!;
-    expect(b).toMatchObject({ id: "maptiler-streets-v2", label: "MapTiler Streets", provider: "maptiler" });
-    expect(b.url).toBe("https://api.maptiler.com/maps/streets-v2/style.json?key=abc");
-  });
-
-  it("rejects odd style ids and falls back to Dataviz", () => {
-    expect(maptilerBasemap("../../x", "abc")!.id).toBe("maptiler-dataviz");
-    expect(maptilerBasemap(undefined, "abc")!.id).toBe("maptiler-dataviz");
-    expect(maptilerBasemap("winter-v2", "abc")!.label).toBe("MapTiler winter-v2");
+  it("time windows: MRH city-wide hours by weekday, hazmat from the station", () => {
+    expect(timeWindow("mrh", null, "2026-10-02")).toBe("15–19 Uhr"); // Friday
+    expect(timeWindow("mrh", null, "2026-10-03")).toBe("10–14 Uhr"); // Saturday
+    expect(timeWindow("hazmat", { note: "8 bis 11.30 Uhr" }, "2026-10-10")).toBe("8 bis 11.30 Uhr");
+    expect(timeWindow("sammelstelle", null, "2026-10-10")).toBeNull();
   });
 });

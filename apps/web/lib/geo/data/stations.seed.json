@@ -20,7 +20,11 @@
           "2026-10-02",
           "2026-10-06"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "address": "St. Jakobstrasse 29",
+        "servesPlz": [
+          "8004"
+        ]
       }
     },
     {
@@ -41,7 +45,11 @@
         "nextDates": [
           "2026-10-09"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "address": "Helvetiaplatz",
+        "servesPlz": [
+          "8004"
+        ]
       }
     },
     {
@@ -62,7 +70,11 @@
         "nextDates": [
           "2026-10-03"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "address": "Limmatplatz",
+        "servesPlz": [
+          "8005"
+        ]
       }
     },
     {
@@ -83,7 +95,11 @@
         "nextDates": [
           "2026-10-14"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "address": "Schaffhauserplatz",
+        "servesPlz": [
+          "8057"
+        ]
       }
     },
     {
@@ -104,7 +120,11 @@
         "nextDates": [
           "2026-10-17"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "address": "Hegibachplatz",
+        "servesPlz": [
+          "8032"
+        ]
       }
     },
     {
@@ -125,7 +145,11 @@
         "nextDates": [
           "2026-10-21"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "address": "Marktplatz Oerlikon",
+        "servesPlz": [
+          "8050"
+        ]
       }
     },
     {
@@ -146,7 +170,11 @@
         "nextDates": [
           "2026-10-10"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "address": "Bucheggplatz",
+        "servesPlz": [
+          "8037"
+        ]
       }
     },
     {
@@ -167,7 +195,11 @@
         "nextDates": [
           "2026-10-24"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "address": "Albisriederplatz",
+        "servesPlz": [
+          "8004"
+        ]
       }
     },
     {
@@ -189,7 +221,10 @@
           "glass",
           "metal"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "servesPlz": [
+          "8003"
+        ]
       }
     },
     {
@@ -213,7 +248,10 @@
           "textiles",
           "oil"
         ],
-        "placeholder": true
+        "placeholder": true,
+        "servesPlz": [
+          "8004"
+        ]
       }
     }
   ]

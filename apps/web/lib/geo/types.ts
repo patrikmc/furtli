@@ -1,26 +1,34 @@
-import type { Feature, FeatureCollection, Point, Polygon, MultiPolygon } from "geojson";
+import type { Feature, FeatureCollection, Point } from "geojson";
+export type { KreisCollection, KreisFeature, PlzCollection, PlzFeature } from "geo";
 
 /**
- * Shared data contract for the map. The ingestion pipeline (step 2) must
- * produce exactly this shape from /api/stations, so the UI never changes
- * when the data source does.
+ * The data contract between /api/stations and the map. The API builds it
+ * from the database (packages/ingest fills it); without a database it
+ * serves lib/geo/data/stations.seed.json in the same shape.
  */
-export const STATION_KINDS = ["mrh", "hazmat", "sammelstelle"] as const;
+export const STATION_KINDS = ["mrh", "hazmat", "sammelstelle", "recyclinghof"] as const;
 export type StationKind = (typeof STATION_KINDS)[number];
 
 export interface StationProps {
-  /** Stable slug, e.g. "mrh-stauffacher". Used in the URL (?station=). */
+  /** Stable slug, e.g. "mrh-stauffacher-st-jakobstrasse-29". Used in the URL (?station=). */
   id: string;
   kind: StationKind;
+  /** Short name: the Quartier for MRH/hazmat stops, the address for Sammelstellen. */
   name: string;
-  /** Stadtkreis 1–12. */
+  /** Place/address detail, e.g. "St. Jakobstrasse 29". */
+  address?: string | null;
+  /** Stadtkreis 1–12 where the station is. */
   kreis: number;
-  /** Swiss postcode, e.g. "8004". */
+  /** Postcode where the station is. */
   plz: string;
-  /** Sammelstellen only: accepted materials. */
+  /** Sammelstellen: glass, metal, oil, textiles. */
   materials?: string[];
-  /** ISO dates (YYYY-MM-DD), soonest first, max 3. */
+  /** Upcoming dates (ISO, soonest first, max 3). MRH and hazmat only. */
   nextDates?: string[];
+  /** Postcodes the city assigns to this stop in its calendar ("official stop for 8004"). */
+  servesPlz?: string[];
+  /** Weekly hours ({ mo: "13:00–19:00", … }) or a note ({ note: "8 bis 11.30 Uhr" }). */
+  hours?: Record<string, string> | null;
   /** True for hand-written seed data; the UI shows a "Beispieldaten" badge. */
   placeholder?: boolean;
 }
@@ -28,10 +36,8 @@ export interface StationProps {
 export type StationFeature = Feature<Point, StationProps>;
 export type StationCollection = FeatureCollection<Point, StationProps>;
 
-export interface KreisProps {
-  kreis: number;
-  name: string;
+/** Next kerbside collections for one postcode (/api/calendar?plz=). */
+export interface PlzCalendar {
+  plz: string;
+  next: Partial<Record<"paper" | "cardboard" | "organic" | "waste", string[]>>;
 }
-
-export type KreisFeature = Feature<Polygon | MultiPolygon, KreisProps>;
-export type KreisCollection = FeatureCollection<Polygon | MultiPolygon, KreisProps>;

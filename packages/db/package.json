@@ -7,7 +7,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./test/test-db": "./src/test/test-db.ts",
+    "./test/setup-integration": "./src/test/setup-integration.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate",

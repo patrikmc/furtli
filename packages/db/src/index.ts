@@ -1,7 +1,7 @@
-export { db } from "./client";
+export { createDb, getDb, closeDb, hasDatabase, type Database } from "./client";
 export * from "./schema";
 
-// Re-exported so apps consuming this package never need `drizzle-orm` as a
+// Re-exported so packages using the database never need `drizzle-orm` as a
 // direct dependency of their own — one place owns the ORM version.
 export {
   eq,
@@ -10,6 +10,9 @@ export {
   desc,
   asc,
   ne,
+  gte,
+  lte,
+  between,
   isNull,
   isNotNull,
   inArray,

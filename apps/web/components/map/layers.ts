@@ -17,6 +17,10 @@ export const LAYER = {
   clusterCount: "cluster-count",
   stationHalo: "station-halo",
   stations: "stations",
+  focusFill: "focus-fill",
+  focusLine: "focus-line",
+  radiusFill: "radius-fill",
+  radiusLine: "radius-line",
 } as const;
 
 const INK = "#17223B";
@@ -107,10 +111,17 @@ export const stationHalo = (selectedId: string | null): Omitted<CircleLayerSpeci
   },
 });
 
-export const stationSymbol: Omitted<SymbolLayerSpecification> = {
+/**
+ * Station markers. With a search active, stations outside the results are
+ * dimmed rather than hidden, so the map still shows what's a bit further.
+ */
+export const stationSymbol = (highlightIds: string[] | null): Omitted<SymbolLayerSpecification> => ({
   id: LAYER.stations,
   type: "symbol",
   filter: unclustered,
+  paint: {
+    "icon-opacity": highlightIds ? ["case", ["in", ["get", "id"], ["literal", highlightIds]], 1, 0.35] : 1,
+  },
   layout: {
     "icon-image": [
       "match",
@@ -122,4 +133,29 @@ export const stationSymbol: Omitted<SymbolLayerSpecification> = {
     "icon-allow-overlap": true,
     "icon-ignore-placement": true,
   },
+});
+
+/** The Kreis or postcode being searched (area anchors, or "only my Kreis"). */
+export const focusFill: Omitted<FillLayerSpecification> = {
+  id: LAYER.focusFill,
+  type: "fill",
+  paint: { "fill-color": MOSS, "fill-opacity": 0.14 },
+};
+export const focusLine: Omitted<LineLayerSpecification> = {
+  id: LAYER.focusLine,
+  type: "line",
+  layout: { "line-join": "round" },
+  paint: { "line-color": MOSS, "line-width": 2.5, "line-opacity": 0.9 },
+};
+
+/** The search radius around a picked point. */
+export const radiusFill: Omitted<FillLayerSpecification> = {
+  id: LAYER.radiusFill,
+  type: "fill",
+  paint: { "fill-color": ORANGE, "fill-opacity": 0.07 },
+};
+export const radiusLine: Omitted<LineLayerSpecification> = {
+  id: LAYER.radiusLine,
+  type: "line",
+  paint: { "line-color": ORANGE, "line-width": 1.5, "line-dasharray": [2, 2], "line-opacity": 0.8 },
 };

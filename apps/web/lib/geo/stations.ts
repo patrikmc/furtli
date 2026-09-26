@@ -1,12 +1,11 @@
 import { STATION_KINDS, type StationCollection, type StationFeature, type StationProps } from "./types";
 
 /**
- * Where station data comes from. Today: the static seed file in /public.
- * Step 2 (ingestion) switches this to "/api/stations" — nothing else in
- * the UI knows or cares where the data lives.
+ * Where station data comes from: /api/stations, which reads the database
+ * filled by packages/ingest (or serves the seed file when no database is
+ * configured). Nothing else in the UI knows where the data lives.
  */
-export const STATIONS_URL = "/geo/stations.seed.geojson";
-export const KREISE_URL = "/geo/stadtkreise.geojson";
+export const STATIONS_URL = "/api/stations";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -20,12 +19,13 @@ function isStationProps(p: unknown): p is StationProps {
     (STATION_KINDS as readonly string[]).includes(o.kind as string) &&
     typeof o.kreis === "number" &&
     Number.isInteger(o.kreis) &&
-    o.kreis >= 1 &&
+    o.kreis >= 0 &&
     o.kreis <= 12 &&
     typeof o.plz === "string" &&
     /^\d{4}$/.test(o.plz) &&
     (o.materials === undefined ||
       (Array.isArray(o.materials) && o.materials.every((m) => typeof m === "string"))) &&
+    (o.servesPlz === undefined || (Array.isArray(o.servesPlz) && o.servesPlz.every((p) => typeof p === "string"))) &&
     (o.nextDates === undefined ||
       (Array.isArray(o.nextDates) &&
         o.nextDates.length <= 3 &&
@@ -48,7 +48,7 @@ function isStationFeature(f: unknown): f is StationFeature {
 }
 
 /**
- * Validates untrusted JSON (seed file today, API response tomorrow) and
+ * Validates untrusted JSON (the API response, or the seed file) and
  * returns a typed collection. Invalid features are dropped with a warning
  * rather than breaking the whole map; duplicate ids throw, since the URL
  * state (?station=) depends on ids being unique.

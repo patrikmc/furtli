@@ -7,8 +7,9 @@ name: CI
 # The E2E tests stub the swisstopo base-map style (apps/web/e2e/fixtures.ts),
 # so they need no secrets and don't depend on swisstopo's uptime.
 #
-# The Postgres service stays for step 2 (ingestion): drizzle-kit and the
-# db integration tests run against it. With no schema yet they are no-ops.
+# The Postgres service runs the ingest integration tests: the whole pipeline
+# (validate, match stations, load, diff, idempotency) against a real database,
+# with recorded Open Data Zürich responses instead of the network.
 
 on:
   pull_request:
@@ -52,10 +53,10 @@ jobs:
       - name: unit + component tests
         run: pnpm -r --if-present test
 
-      - name: db integration tests (none until step 2)
+      - name: integration tests (ingest pipeline against real Postgres)
         run: |
           pnpm --filter db db:test:setup
-          pnpm --filter db test:integration
+          pnpm test:integration
 
       - name: typecheck
         run: pnpm -r typecheck
