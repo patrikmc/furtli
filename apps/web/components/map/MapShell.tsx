@@ -4,15 +4,16 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapRef } from "react-map-gl/maplibre";
 
-import { KREISE_URL, getStations } from "@/lib/geo/stations";
 import type { InitialView } from "./ZurichMap";
 import { ZH_CENTER, kreisForPoint } from "@/lib/geo/kreis";
-import { STATION_KINDS, type KreisCollection, type KreisFeature, type StationCollection, type StationKind } from "@/lib/geo/types";
-import { DEV_STYLE_OPTIONS, MAP_STYLE_URL } from "@/lib/map-config";
+import { STATION_KINDS, type KreisFeature, type StationCollection, type StationKind } from "@/lib/geo/types";
+import Link from "next/link";
+import { DEFAULT_BASEMAP, allBasemaps, type Basemap } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
 import { LocateButton, type LocateResult } from "./LocateButton";
 import { StationSheet } from "./StationSheet";
 import { TypeFilterChips } from "./TypeFilterChips";
+import { useMapData } from "./useMapData";
 
 // MapLibre needs `window`, so the map itself never renders on the server.
 const ZurichMap = dynamic(() => import("./ZurichMap"), { ssr: false });
@@ -20,40 +21,32 @@ const ZurichMap = dynamic(() => import("./ZurichMap"), { ssr: false });
 interface Props {
   initialKreis: number | null;
   initialStationId: string | null;
+  /** Base map for this route; "/" uses the env default, /maptiler a MapTiler style. */
+  basemap?: Basemap;
+  /** Show which base map is active (on comparison routes). */
+  showBasemapBadge?: boolean;
 }
 
-export default function MapShell({ initialKreis, initialStationId }: Props) {
+export default function MapShell({
+  initialKreis,
+  initialStationId,
+  basemap = DEFAULT_BASEMAP,
+  showBasemapBadge = false,
+}: Props) {
   const mapRef = useRef<MapRef | null>(null);
-  const [styleUrl, setStyleUrl] = useState(MAP_STYLE_URL);
+  // Dev style switcher overrides the route's base map locally.
+  const [devBasemap, setDevBasemap] = useState<Basemap | null>(null);
+  const active = devBasemap ?? basemap;
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
-  const [allStations, setAllStations] = useState<StationCollection | null>(null);
-  const [kreise, setKreise] = useState<KreisCollection | null>(null);
-  const [dataError, setDataError] = useState<string | null>(null);
+  const { stations: allStations, kreise, error: dataError } = useMapData();
 
   const [kinds, setKinds] = useState<StationKind[]>([...STATION_KINDS]);
   const [kreis, setKreis] = useState<number | null>(initialKreis);
   const [stationId, setStationId] = useState<string | null>(initialStationId);
   const [userLocation, setUserLocation] = useState<LocateResult | null>(null);
   const [hint, setHint] = useState<string | null>(null);
-
-  // ---- data ---------------------------------------------------------------
-  useEffect(() => {
-    const ctrl = new AbortController();
-    Promise.all([
-      getStations(ctrl.signal),
-      fetch(KREISE_URL, { signal: ctrl.signal }).then((r) => r.json() as Promise<KreisCollection>),
-    ])
-      .then(([s, k]) => {
-        setAllStations(s);
-        setKreise(k);
-      })
-      .catch((e) => {
-        if (!ctrl.signal.aborted) setDataError(String(e?.message ?? e));
-      });
-    return () => ctrl.abort();
-  }, []);
 
   const stations = useMemo<StationCollection | null>(
     () =>
@@ -164,7 +157,8 @@ export default function MapShell({ initialKreis, initialStationId }: Props) {
       <ZurichMap
         mapRef={mapRef}
         initialView={initialView}
-        styleUrl={styleUrl}
+        styleUrl={active.url}
+        provider={active.provider}
         kreise={kreise}
         stations={stations}
         activeKreis={kreis}
@@ -192,23 +186,15 @@ export default function MapShell({ initialKreis, initialStationId }: Props) {
               Beispieldaten
             </span>
           )}
-          {process.env.NODE_ENV === "development" && (
-            <select
-              aria-label="Kartenstil (nur Entwicklung)"
-              value={styleUrl}
-              onChange={(e) => setStyleUrl(e.target.value)}
-              className="pointer-events-auto ml-auto max-w-40 rounded-lg border border-ink/15 bg-white px-2 py-1 text-xs text-ink"
+          {showBasemapBadge && (
+            <span
+              data-testid="basemap-badge"
+              className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-white"
             >
-              {!DEV_STYLE_OPTIONS.some((o) => o.url === MAP_STYLE_URL) && (
-                <option value={MAP_STYLE_URL}>.env style</option>
-              )}
-              {DEV_STYLE_OPTIONS.map((o) => (
-                <option key={o.url} value={o.url}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              {active.label}
+            </span>
           )}
+          {process.env.NODE_ENV === "development" && <DevStylePicker active={active} onPick={setDevBasemap} />}
         </div>
         <TypeFilterChips active={kinds} onToggle={toggleKind} />
       </header>
@@ -242,6 +228,34 @@ export default function MapShell({ initialKreis, initialStationId }: Props) {
           {dataError ? "Stationen konnten nicht geladen werden." : "Die Karte konnte nicht vollständig geladen werden."}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Dev-only: switch base map in place, and jump to the comparison views. */
+function DevStylePicker({ active, onPick }: { active: Basemap; onPick: (b: Basemap) => void }) {
+  const options = allBasemaps();
+  const list = options.some((o) => o.id === active.id) ? options : [active, ...options];
+  return (
+    <div className="pointer-events-auto ml-auto flex items-center gap-2">
+      <select
+        aria-label="Kartenstil (nur Entwicklung)"
+        value={active.id}
+        onChange={(e) => {
+          const next = list.find((o) => o.id === e.target.value);
+          if (next) onPick(next);
+        }}
+        className="max-w-40 rounded-lg border border-ink/15 bg-white px-2 py-1 text-xs text-ink"
+      >
+        {list.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <Link href="/compare" className="rounded-lg bg-white px-2 py-1 text-xs font-bold text-ink shadow-sm">
+        Vergleich
+      </Link>
     </div>
   );
 }

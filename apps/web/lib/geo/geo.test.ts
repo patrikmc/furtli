@@ -92,3 +92,20 @@ describe("helpers", () => {
     expect(nextUpcomingDate(["2026-01-01"], new Date("2026-10-03"))).toBeUndefined();
   });
 });
+
+describe("map-config", async () => {
+  const { maptilerBasemap } = await import("../map-config");
+
+  it("builds MapTiler presets only with a key", () => {
+    expect(maptilerBasemap("dataviz", "")).toBeNull();
+    const b = maptilerBasemap("streets-v2", "abc")!;
+    expect(b).toMatchObject({ id: "maptiler-streets-v2", label: "MapTiler Streets", provider: "maptiler" });
+    expect(b.url).toBe("https://api.maptiler.com/maps/streets-v2/style.json?key=abc");
+  });
+
+  it("rejects odd style ids and falls back to Dataviz", () => {
+    expect(maptilerBasemap("../../x", "abc")!.id).toBe("maptiler-dataviz");
+    expect(maptilerBasemap(undefined, "abc")!.id).toBe("maptiler-dataviz");
+    expect(maptilerBasemap("winter-v2", "abc")!.label).toBe("MapTiler winter-v2");
+  });
+});

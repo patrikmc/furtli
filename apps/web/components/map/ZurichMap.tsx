@@ -9,13 +9,14 @@ import Map, {
   Source,
   type MapLayerMouseEvent,
   type MapRef,
+  type ViewStateChangeEvent,
 } from "react-map-gl/maplibre";
 import type { GeoJSONSource, Map as MaplibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import type { KreisCollection, StationCollection } from "@/lib/geo/types";
 import { ZH_BOUNDS } from "@/lib/geo/kreis";
-import { DATA_ATTRIBUTION } from "@/lib/map-config";
+import { DATA_ATTRIBUTION, type BasemapProvider } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
 import { registerStationIcons } from "./icons";
 import {
@@ -46,6 +47,14 @@ export interface ZurichMapProps {
   onSelectKreis: (kreis: number | null) => void;
   onLoad: () => void;
   onError: (message: string) => void;
+  /** Used to show provider-required branding (MapTiler logo). */
+  provider?: BasemapProvider;
+  /** Fires on every camera change; `e.originalEvent` is set for user gestures. */
+  onMove?: (e: ViewStateChangeEvent) => void;
+  onMoveEnd?: (e: ViewStateChangeEvent) => void;
+  /** Mirror the camera in the URL hash (#zoom/lat/lng), for shareable positions. */
+  hash?: boolean;
+  showNavigation?: boolean;
 }
 
 const INTERACTIVE = [LAYER.stations, LAYER.clusters, LAYER.kreisFill];
@@ -72,6 +81,11 @@ export default function ZurichMap({
   onSelectKreis,
   onLoad,
   onError,
+  provider,
+  onMove,
+  onMoveEnd,
+  hash = false,
+  showNavigation = true,
 }: ZurichMapProps) {
   const [font, setFont] = useState<string[] | null>(null);
   // Our sources mount only once icons are registered, so markers never
@@ -147,9 +161,13 @@ export default function ZurichMap({
         onLoad();
       }}
       onError={(e) => onError(e.error?.message ?? "Kartenfehler")}
+      onMove={onMove}
+      onMoveEnd={onMoveEnd}
+      hash={hash}
     >
       <AttributionControl position="bottom-right" compact={false} customAttribution={DATA_ATTRIBUTION} />
-      <NavigationControl position="bottom-right" showCompass={false} />
+      {showNavigation && <NavigationControl position="bottom-right" showCompass={false} />}
+      {provider === "maptiler" && <MapTilerLogo />}
 
       {styleReady && kreise && (
         <Source id="kreise" type="geojson" data={kreise}>
@@ -184,5 +202,21 @@ export default function ZurichMap({
         </Marker>
       )}
     </Map>
+  );
+}
+
+/** MapTiler's free plan requires their logo on the map. */
+function MapTilerLogo() {
+  return (
+    <a
+      href="https://www.maptiler.com"
+      target="_blank"
+      rel="noopener"
+      data-testid="maptiler-logo"
+      className="absolute bottom-2 left-2 z-[2] block"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- tiny third-party SVG, no optimisation needed */}
+      <img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler" width={67} height={20} />
+    </a>
   );
 }

@@ -23,6 +23,9 @@ export default defineConfig({
   ],
   webServer: {
     command: "pnpm build && pnpm start",
+    // A dummy key enables /maptiler and /compare; e2e/fixtures.ts stubs
+    // api.maptiler.com, so no real key or network is used.
+    env: { NEXT_PUBLIC_MAPTILER_KEY: "e2e-test-key" },
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

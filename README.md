@@ -21,6 +21,18 @@ pnpm dev                              # http://localhost:3000
 ```
 
 Try the deep links: `/?station=mrh-stauffacher`, `/?kreis=4`.
+
+### Comparing base maps (swisstopo vs MapTiler)
+
+Add a MapTiler key to `apps/web/.env.local` (`NEXT_PUBLIC_MAPTILER_KEY=…`, free at cloud.maptiler.com; allow `localhost` and your Vercel domains under *Allowed HTTP origins*), restart `pnpm dev`, then:
+
+| Route | What it shows |
+| --- | --- |
+| `/` | The app on swisstopo Light (production default) |
+| `/maptiler` | The same app on MapTiler; `?style=dataviz` (default), `streets-v2`, `basic-v2`, `bright-v2`, `pastel`, `backdrop`, `topo-v2`, or any MapTiler map id. Deep links work too: `/maptiler?style=pastel&kreis=4` |
+| `/compare` | Two maps side by side (stacked on phones), cameras in sync, a style picker per pane. `?left=swisstopo-light&right=maptiler-dataviz`; the camera is in the hash, so a link reproduces the exact view |
+
+Without a key, `/maptiler` explains how to add one and `/compare` compares the two swisstopo styles. Both routes are `noindex`; the MapTiler logo is shown as the free plan requires. In `pnpm dev`, the style dropdown on `/` also lists the MapTiler styles and links to `/compare`.
 To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOrigins` in `apps/web/next.config.ts` and open `http://<ip>:3000`. Geolocation needs HTTPS on phones — use a Vercel preview (or `next dev --experimental-https`) to test "Use my location".
 
 ## How the map is built
@@ -29,6 +41,9 @@ To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOri
 apps/web/
   app/page.tsx                 server page: reads ?kreis=&station=, renders MapShell
   app/abholen/page.tsx         placeholder for the pickup booking flow (CTA target)
+  app/maptiler/page.tsx        same app on a MapTiler style (?style=)
+  app/compare/page.tsx         side-by-side base-map comparison
+  components/compare/          CompareView (synced panes), MissingKeyNotice
   components/map/
     MapShell.tsx               client: data loading, selection + URL state, overlays
     ZurichMap.tsx              MapLibre map (loaded with ssr:false), sources, layers, clicks
@@ -41,7 +56,7 @@ apps/web/
     stations.ts                getStations(): the ONE place that knows where data lives
     kreis.ts                   point-in-Kreis, bounds, URL param parsing
     kinds.ts                   labels, brand colours, pictograms per station type
-  lib/map-config.ts            base-map style (env), dev style switcher options, attribution
+  lib/map-config.ts            base-map presets (swisstopo, MapTiler), env default, attribution
   public/geo/
     stadtkreise.geojson        12 Kreise, WGS84, 37 KB (Open Data Zürich, CC0)
     stations.seed.geojson      10 placeholder stations (placeholder: true)
@@ -57,8 +72,8 @@ apps/web/
 ## Tests
 
 ```bash
-pnpm test        # 17 unit + component tests (geo helpers, seed data quality, sheet, chips)
-pnpm test:e2e    # Playwright, mobile + desktop; base-map style stubbed, no secrets
+pnpm test        # 19 unit + component tests (geo helpers, seed data quality, sheet, chips)
+pnpm test:e2e    # Playwright, mobile + desktop; swisstopo + MapTiler styles stubbed, no secrets
 ```
 
 See [`docs/TESTING.md`](docs/TESTING.md). CI (`.github/workflows/ci.yml`) runs lint, tests, typecheck, build and E2E on every PR and push to `main`.
