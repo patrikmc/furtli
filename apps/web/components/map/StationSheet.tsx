@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatDistance } from "geo";
 import { DAY_LABELS, KINDS, MATERIAL_LABELS, timeWindow } from "@/lib/geo/kinds";
 import type { StationFeature } from "@/lib/geo/types";
+import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
 import { KindDot } from "./KindDot";
 import { Sheet } from "./Sheet";
 
@@ -117,9 +118,15 @@ export function StationSheet({
           </div>
         ) : null}
 
+        {(p.kind === "mrh" || p.kind === "hazmat") && !p.placeholder && (
+          <SubscribeForm key={p.id} plz={null} station={{ id: p.id, name: p.name, kind: p.kind }} source="station" />
+        )}
+
         {p.kind === "mrh" && (
           <Link
             href={`/abholen?station=${encodeURIComponent(p.id)}`}
+            data-umami-event="pickup_cta"
+            data-umami-event-station={p.id}
             className="block rounded-2xl bg-orange px-5 py-3.5 text-center font-display text-lg font-bold text-white shadow-sm hover:brightness-105"
           >
             Keine Zeit? Wir bringen&apos;s hin

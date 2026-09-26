@@ -16,6 +16,7 @@ import {
   resolveAnchor,
 } from "geo";
 
+import { track } from "@/lib/analytics/umami";
 import { type Radius, type SearchState, writeSearchParams } from "@/lib/geo/anchor";
 import { toPoints, todayZurich } from "@/lib/geo/group";
 import { ZH_CENTER } from "@/lib/geo/kreis";
@@ -172,13 +173,18 @@ export default function MapShell({
   }, []);
 
   const pickPoint = useCallback(
-    (lng: number, lat: number) => setAnchor({ type: "point", lng, lat, source: "map" }),
+    (lng: number, lat: number) => {
+      setAnchor({ type: "point", lng, lat, source: "map" });
+      track("place_search", { by: "map" });
+    },
     [setAnchor],
   );
 
   const pickArea = useCallback(
     (a: Anchor) => {
       setAnchor(a);
+      if (a.type === "plz") track("place_search", { by: "plz", plz: a.plz });
+      else if (a.type === "kreis") track("place_search", { by: "kreis", kreis: a.kreis });
       const r = areas && resolveAnchor(a, areas.kreise, areas.plz);
       if (r?.area) {
         const [w, s, e, n] = areaBounds(r.area);
@@ -201,6 +207,7 @@ export default function MapShell({
         return;
       }
       setAnchor({ type: "point", lng, lat, source: "gps" });
+      track("place_search", { by: "gps" });
       flyTo(lng, lat, 14.5);
     },
     [areas, flyTo, setAnchor],
@@ -211,6 +218,7 @@ export default function MapShell({
       const f = allStations?.features.find((s) => s.properties.id === id);
       if (!f) return;
       setStationId(id);
+      track("station_open", { kind: f.properties.kind });
       const [lng, lat] = f.geometry.coordinates;
       flyTo(lng, lat, Math.max(mapRef.current?.getZoom() ?? 12, 14.5));
     },

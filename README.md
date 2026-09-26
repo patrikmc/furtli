@@ -81,6 +81,37 @@ Add a MapTiler key to `apps/web/.env.local` (`NEXT_PUBLIC_MAPTILER_KEY=…`, fre
 Without a key, `/maptiler` explains how to add one and `/compare` compares the two swisstopo styles. Both routes are `noindex`; the MapTiler logo is shown as the free plan requires. In `pnpm dev`, the style dropdown on `/` also lists the MapTiler styles and links to `/compare`.
 To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOrigins` in `apps/web/next.config.ts` and open `http://<ip>:3000`. Geolocation needs HTTPS on phones — use a Vercel preview (or `next dev --experimental-https`) to test "Use my location".
 
+## Analytics (Umami) and email reminders (Resend)
+
+### Where visitors come from
+
+- **Umami** (cookieless, no consent banner) loads only when `NEXT_PUBLIC_UMAMI_WEBSITE_ID` is set. Before anything is sent, a small filter (`lib/analytics/umami.ts`) removes every query parameter except the UTM tags and area filters (`plz`, `kreis`, `station`, `scope`, `r`), so a tapped home location (`?at=`) never reaches Umami.
+- **UTM links** for every post, QR card and email: `?utm_source=instagram&utm_medium=social&utm_campaign=reel-wasserkocher` (scheme in the 09a posting plan). Umami's *UTM* and *Referrers* reports show visits per source.
+- **Sign-ups are attributed too:** the first page of a visit stores its UTM tags and referring site in `sessionStorage`; the subscribe form sends them along and they're saved on the `subscriber` row (`utm_*`, `referrer`, `landing_path`, `signup_source`). Subscribers per channel:
+
+  ```sql
+  select coalesce(utm_source, referrer, 'direct') as source, utm_campaign,
+         count(*) filter (where status = 'active') as active, count(*) as signed_up
+  from subscriber group by 1, 2 order by active desc;
+  ```
+
+- **Custom events** (Umami → Events): `place_search` (by plz/kreis/map/gps), `station_open` (kind), `pickup_cta` (station), `subscribe_open`, `subscribe_submit` (source, topics, utm_source), `subscribe_confirmed`, `unsubscribe`. A funnel `subscribe_open → subscribe_submit → subscribe_confirmed` in Umami shows the drop-off.
+
+### Reminder emails
+
+```
+map (PLZ panel / MRH stop) ── "Erinnerung per E-Mail" form ── POST /api/subscribe
+   → subscriber (pending) + confirmation email ── /abo/bestaetigen (button) → active + welcome email
+   → Vercel Cron 16:00 UTC daily ── /api/cron/emails ── reminders for tomorrow; Sundays also the weekly overview
+   → every email: footer link /abo/abmelden + one-click List-Unsubscribe header
+```
+
+- **Double opt-in:** nothing but the confirmation email is sent before the button on `/abo/bestaetigen` is pressed. Changes by an active subscriber are held in `pending_prefs` until confirmed. The API answers the same for known and unknown addresses.
+- **Exactly once:** each reminder/digest is claimed in `email_log` (unique subscriber + kind + date) before sending, so re-runs never send twice. Failed sends stay `failed` (see the run summary).
+- **Templates** (React Email, DE + EN): `apps/web/emails/` (confirm, welcome, reminder, weekly overview); all wording in `lib/email/copy.ts`. Preview while editing: `pnpm --filter web email:dev` → http://localhost:3001.
+- **Locally without Resend:** leave `RESEND_API_KEY` unset; emails are printed to the `pnpm dev` log with their links (click the confirm link from there). Run the cron by hand: `curl -H "Authorization: Bearer $CRON_SECRET" "localhost:3000/api/cron/emails?dryRun=1"` (`&forceDigest=1` for the Sunday overview).
+- **Going live:** verify the sending domain in Resend (SPF, DKIM, DMARC), set `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET` in Vercel, run `pnpm db:migrate` (migration `0001_email_subscriptions`). Review `/datenschutz` (draft) and the collection hints in `lib/email/copy.ts` before launch.
+
 ## How the map is built
 
 ```
@@ -120,7 +151,8 @@ packages/
 ## Tests
 
 ```bash
-pnpm test              # 50 unit + component tests (geo maths, parsers, station matching, UI)
+pnpm test              # 81 unit + component tests (geo maths, parsers, station matching, UI, email templates,
+                       # and the whole subscription flow against in-process Postgres via PGlite)
 pnpm test:integration  # 8 pipeline tests against real Postgres (needs `pnpm --filter db db:test:setup` once)
 pnpm test:e2e          # Playwright, mobile + desktop; map styles stubbed, no secrets
 ```
@@ -129,7 +161,7 @@ See [`docs/TESTING.md`](docs/TESTING.md). CI (`.github/workflows/ci.yml`) runs l
 
 ## Database
 
-One migration, `0000_recycling_schema`. `pnpm db:migrate` applies it; in production the `DB migrate (Neon)` workflow does it on merge. See [`docs/DATABASE.md`](docs/DATABASE.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (the ARCHITECTURE doc still describes Clerk; auth comes back only when pickups need accounts).
+Two migrations: `0000_recycling_schema` and `0001_email_subscriptions` (`subscriber`, `email_log`). `pnpm db:migrate` applies them; in production the `DB migrate (Neon)` workflow does it on merge. See [`docs/DATABASE.md`](docs/DATABASE.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (the ARCHITECTURE doc still describes Clerk; auth comes back only when pickups need accounts).
 
 ## Regenerating the Kreis boundaries
 

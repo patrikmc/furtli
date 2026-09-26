@@ -1,0 +1,19 @@
+import { getDb, hasDatabase } from "db";
+import { getMailer } from "@/lib/email/mailer";
+import { confirm } from "@/lib/subscriptions/service";
+
+export const dynamic = "force-dynamic";
+
+/** Form POST from /abo/bestaetigen (a button, so link scanners can't confirm on their own). */
+export async function POST(req: Request) {
+  const form = await req.formData().catch(() => null);
+  const token = String(form?.get("t") ?? "");
+  const back = (s: string) => Response.redirect(new URL(`/abo/fertig?s=${s}`, req.url), 303);
+  if (!token || !hasDatabase()) return back("invalid");
+  try {
+    return back(await confirm({ db: getDb(), mailer: getMailer() }, token));
+  } catch (e) {
+    console.error("POST /api/email/confirm failed", e);
+    return back("error");
+  }
+}

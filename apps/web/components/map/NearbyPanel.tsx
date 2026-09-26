@@ -6,6 +6,7 @@ import { anchorSubtitle, anchorTitle, RADII, strictAreaName, type Radius } from 
 import { groupDates, groupPlaces, type Group, type StationResult } from "@/lib/geo/group";
 import { KINDS, MATERIAL_LABELS, timeWindow } from "@/lib/geo/kinds";
 import type { PlzCalendar } from "@/lib/geo/types";
+import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
 import { KindDot } from "./KindDot";
 import { Sheet } from "./Sheet";
 import { formatDate } from "./StationSheet";
@@ -121,6 +122,8 @@ export function NearbyPanel({
             </ul>
           </div>
         )}
+
+        {anchorPlz && <SubscribeForm key={anchorPlz} plz={anchorPlz} source="nearby" />}
 
         <div role="tablist" aria-label="Ansicht" className="flex gap-1 border-b border-ink/10">
           <TabButton active={tab === "dates"} onClick={() => setTab("dates")}>
