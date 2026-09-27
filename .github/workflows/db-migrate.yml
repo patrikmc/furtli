@@ -2,7 +2,7 @@ name: DB migrate (Neon)
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "packages/db/migrations/**"
   workflow_dispatch:
