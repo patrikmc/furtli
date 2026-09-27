@@ -1,8 +1,11 @@
 name: CI
 
-# Runs on every PR and on pushes to main: lint, unit/component tests,
-# typecheck, production build, and the Playwright E2E suite for the map.
-# Vercel's git integration handles preview/production deploys separately.
+# Lint, unit/component tests, ingest integration tests, typecheck, production
+# build, and the Playwright E2E suite for the map.
+#
+# Runs on every PR. Pushes to master/release don't trigger it directly: the
+# deploy workflow (deploy.yml) calls it as its first stage, so a red CI blocks
+# the staging/production deploy.
 #
 # The E2E tests stub the swisstopo base-map style (apps/web/e2e/fixtures.ts),
 # so they need no secrets and don't depend on swisstopo's uptime.
@@ -13,8 +16,7 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches: [master]
+  workflow_call:
 
 env:
   DATABASE_URL: postgres://postgres:postgres@localhost:5432/app

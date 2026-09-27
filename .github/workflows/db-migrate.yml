@@ -1,38 +1,49 @@
 name: DB migrate (Neon)
 
+# Applies Drizzle migrations to one environment's database.
+#   staging    -> Neon project for staging/dev, branch "staging"  (secret on GitHub environment "staging")
+#   production -> Neon project "furtli-production"                (secret on GitHub environment "production")
+# Two separate Neon projects: production data never shares a project, history
+# or credentials with staging.
+#
+# Called by deploy.yml before every deploy (migrate first, then ship the code
+# that expects the new schema). Can also be run by hand from the Actions tab.
+# drizzle-kit migrate is idempotent: with nothing new it is a no-op.
+
 on:
-  push:
-    branches: [master]
-    paths:
-      - "packages/db/migrations/**"
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       environment:
-        description: "GitHub environment holding the DB secret"
+        description: "Which database to migrate"
         type: choice
-        options: [test]
-        default: test
+        options: [staging, production]
+        default: staging
 
 concurrency:
-  group: db-migrate-${{ inputs.environment || 'test' }}
+  group: db-migrate-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'test' }}
+    # The GitHub environment holds DATABASE_URL_UNPOOLED for that database.
+    # Its branch rule (production: release only) also applies here.
+    environment: ${{ inputs.environment }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED }}
       DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: fail fast if the secret is missing
         run: |
           if [ -z "$DATABASE_URL_UNPOOLED" ]; then
-            echo "::error::DATABASE_URL_UNPOOLED is not set on the environment"
+            echo "::error::DATABASE_URL_UNPOOLED is not set on the '${{ inputs.environment }}' environment"
             exit 1
           fi
 
@@ -45,5 +56,5 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: apply migrations
+      - name: apply migrations (${{ inputs.environment }})
         run: pnpm db:migrate

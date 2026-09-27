@@ -14,9 +14,11 @@
     "test": "pnpm -r --if-present test",
     "test:integration": "pnpm -r --if-present test:integration",
     "test:e2e": "pnpm --filter web test:e2e",
+    "release": "bash scripts/promote-release.sh",
     "db:generate": "pnpm --filter db generate",
     "db:migrate": "pnpm --filter db migrate",
     "db:studio": "pnpm --filter db studio",
+    "db:reset": "pnpm --filter db reset",
     "ingest": "pnpm --filter ingest ingest",
     "ingest:dry": "pnpm --filter ingest ingest --dry-run"
   },

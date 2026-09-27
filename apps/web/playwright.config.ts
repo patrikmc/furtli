@@ -26,7 +26,8 @@ export default defineConfig({
     // The specs expect the 10 sample stations. An empty DATABASE_URL beats the
     // one in .env.local (Next never overrides a variable that is already set),
     // so /api/stations serves the seed file even if a local database is running.
-    env: { DATABASE_URL: "" },
+    // SITE_PASSWORD: "" keeps the password gate (proxy.ts) off for the specs.
+    env: { DATABASE_URL: "", SITE_PASSWORD: "" },
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

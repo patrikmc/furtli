@@ -31,6 +31,11 @@ export interface Mailer {
   sendBatch(messages: OutgoingEmail[], opts?: { idempotencyKey?: string }): Promise<SendResult[]>;
 }
 
+/** Prepended to every subject, e.g. "[Staging] " on staging. Unset in production. */
+export function withSubjectPrefix(subject: string): string {
+  return `${process.env.EMAIL_SUBJECT_PREFIX ?? ""}${subject}`;
+}
+
 export function emailFrom(): string {
   return process.env.EMAIL_FROM || "Furtli <hallo@furtli.ch>";
 }
@@ -48,7 +53,7 @@ class ResendMailer implements Mailer {
       messages.map((m) => ({
         from: emailFrom(),
         to: [m.to],
-        subject: m.subject,
+        subject: withSubjectPrefix(m.subject),
         html: m.html,
         text: m.text,
         headers: m.headers,
@@ -71,7 +76,7 @@ class DevMailer implements Mailer {
     for (const m of messages) {
       const links = [...m.html.matchAll(/href="([^"]+)"/g)].map((x) => x[1].replace(/&amp;/g, "&"));
       console.info(
-        `\n[email:dev] to=${m.to}\n  subject: ${m.subject}\n  links:\n${[...new Set(links)].map((l) => `    ${l}`).join("\n")}\n`,
+        `\n[email:dev] to=${m.to}\n  subject: ${withSubjectPrefix(m.subject)}\n  links:\n${[...new Set(links)].map((l) => `    ${l}`).join("\n")}\n`,
       );
     }
     return messages.map(() => ({ dev: true }));

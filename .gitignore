@@ -42,3 +42,6 @@ test-results/
 
 # Files retired during the template cleanup — review, then delete the folder
 _to_delete/
+
+# Vercel CLI (project link + pulled env files with secrets)
+.vercel/

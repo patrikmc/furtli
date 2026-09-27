@@ -1,0 +1,72 @@
+name: Staging emails
+
+# Sends the reminder emails from staging, so they can be tested before a release.
+# Vercel runs cron jobs only on production (vercel.json -> /api/cron/emails at
+# 16:00 UTC), so this workflow does the same call against staging (SITE_URL).
+#
+#   Scheduled: daily 16:00 UTC, like production (GitHub may start it a few
+#   minutes late; the endpoint sends each email only once, so that's harmless).
+#   By hand:   Actions → Staging emails → Run workflow, with
+#     dry_run       plan only, send nothing (the response lists what would go out)
+#     force_digest  include the Sunday weekly overview today
+#
+# Needs: GitHub environment "staging" with secret CRON_SECRET (same value as
+# the Vercel staging environment) and variable SITE_URL. The endpoint is open
+# in the app's password gate (it checks CRON_SECRET itself); the repository
+# secret VERCEL_AUTOMATION_BYPASS_SECRET is sent too, for as long as Vercel
+# Authentication covers the staging address.
+#
+# To pause staging emails: Actions → Staging emails → ⋯ → Disable workflow.
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (send nothing)"
+        type: boolean
+        default: false
+      force_digest:
+        description: "Include the weekly overview today"
+        type: boolean
+        default: false
+
+concurrency:
+  group: staging-emails
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: call /api/cron/emails on staging
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          FORCE_DIGEST: ${{ inputs.force_digest && '1' || '0' }}
+        run: |
+          for v in SITE_URL CRON_SECRET; do
+            if [ -z "${!v}" ]; then echo "::error::$v is not set (see docs/DEPLOYMENT.md)"; exit 1; fi
+          done
+          query=""
+          [ "$DRY_RUN" = "1" ] && query="dryRun=1"
+          [ "$FORCE_DIGEST" = "1" ] && query="${query:+$query&}forceDigest=1"
+          url="$SITE_URL/api/cron/emails${query:+?$query}"
+          echo "GET $url"
+          extra=()
+          [ -n "$BYPASS" ] && extra=(-H "x-vercel-protection-bypass: $BYPASS")
+          code=$(curl -sS -o response.json -w '%{http_code}' --max-time 150 \
+            -H "Authorization: Bearer $CRON_SECRET" "${extra[@]}" \
+            "$url")
+          echo "HTTP $code"
+          cat response.json; echo
+          { echo "### Staging emails ($code)"; echo '```json'; cat response.json; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          # 200 = all sent, 207 = some failed, anything else = the run failed
+          [ "$code" = "200" ] || exit 1
