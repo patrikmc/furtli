@@ -25,6 +25,8 @@ export interface SendResult {
 }
 
 export interface Mailer {
+  /** "resend" sends for real; "dev" only prints to the log (no RESEND_API_KEY). */
+  readonly kind: "resend" | "dev";
   /** Sends up to 100 messages; results are in the same order. */
   sendBatch(messages: OutgoingEmail[], opts?: { idempotencyKey?: string }): Promise<SendResult[]>;
 }
@@ -34,6 +36,7 @@ export function emailFrom(): string {
 }
 
 class ResendMailer implements Mailer {
+  readonly kind = "resend" as const;
   private client: Resend;
   constructor(apiKey: string) {
     this.client = new Resend(apiKey);
@@ -63,6 +66,7 @@ class ResendMailer implements Mailer {
 }
 
 class DevMailer implements Mailer {
+  readonly kind = "dev" as const;
   async sendBatch(messages: OutgoingEmail[]): Promise<SendResult[]> {
     for (const m of messages) {
       const links = [...m.html.matchAll(/href="([^"]+)"/g)].map((x) => x[1].replace(/&amp;/g, "&"));

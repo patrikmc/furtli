@@ -20,6 +20,7 @@ const { subscribeSchema } = await import("./input");
  * digest, preference changes, unsubscribe.
  */
 class FakeMailer implements Mailer {
+  readonly kind = "resend" as const;
   sent: OutgoingEmail[] = [];
   async sendBatch(messages: OutgoingEmail[]) {
     this.sent.push(...messages);
@@ -116,7 +117,7 @@ describe("subscription flow", () => {
   it("the evening run sends one reminder with all of tomorrow's items, exactly once", async () => {
     const before = mailer.sent.length;
     const r = await runScheduledEmails({ db, mailer, now: MON });
-    expect(r).toMatchObject({ reminderDate: "2026-10-27", sent: 1, failed: 0, digest: null });
+    expect(r).toMatchObject({ reminderDate: "2026-10-27", sent: 1, failed: 0, digest: null, mailer: "resend", activeSubscribers: 1 });
     const m = mailer.last();
     expect(m.subject).toBe("Morgen: Karton und Mobiler Recyclinghof");
     expect(m.html).toContain("Stauffacher");
@@ -153,7 +154,9 @@ describe("subscription flow", () => {
     expect(await unsubscribe({ db, mailer, now: later(MON, 40) }, unsubscribeToken)).toBe("unsubscribed");
     expect(await unsubscribe({ db, mailer }, "nope")).toBe("invalid");
     const tue = later(MON, 24 * 60);
-    expect((await runScheduledEmails({ db, mailer, now: tue }, { forceDigest: true })).planned).toEqual({ reminders: 0, digests: 0 });
+    const r = await runScheduledEmails({ db, mailer, now: tue }, { forceDigest: true });
+    expect(r.planned).toEqual({ reminders: 0, digests: 0 });
+    expect(r.note).toBe("No active (confirmed) subscribers.");
   });
 
   it("station subscriptions must point at an MRH or Sonderabfallmobil stop", async () => {

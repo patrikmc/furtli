@@ -2,7 +2,7 @@ import "server-only";
 import { and, emailLog, eq, inArray, subscriber, type Database, type Subscriber } from "db";
 import { asLang } from "@/lib/email/copy";
 import { listUnsubscribeHeaders, mapPath, trackedUrl, unsubscribePageUrl } from "@/lib/email/links";
-import type { Mailer, OutgoingEmail, SendResult } from "@/lib/email/mailer";
+import { emailFrom, type Mailer, type OutgoingEmail, type SendResult } from "@/lib/email/mailer";
 import { renderDigest, renderReminder, type RenderedEmail } from "@/lib/email/render";
 import type { EmailItem } from "@/lib/email/types";
 import { zurichToday } from "@/lib/server/today";
@@ -30,6 +30,12 @@ export interface RunSummary {
   failed: number;
   dev: number;
   dryRun: boolean;
+  /** Diagnostics: why a run sent nothing. */
+  mailer: "resend" | "dev";
+  from: string;
+  activeSubscribers: number;
+  eventsInWindow: number;
+  note?: string;
 }
 
 interface Job {
@@ -121,7 +127,15 @@ export async function runScheduledEmails(
     failed: 0,
     dev: 0,
     dryRun: !!opts.dryRun,
+    mailer: mailer.kind,
+    from: emailFrom(),
+    activeSubscribers: subs.length,
+    eventsInWindow: events.length,
   };
+  if (mailer.kind === "dev") summary.note = "RESEND_API_KEY is not set for this deployment: emails are only logged, not sent.";
+  else if (subs.length === 0) summary.note = "No active (confirmed) subscribers.";
+  else if (events.length === 0) summary.note = `No collection dates in the database for ${tomorrow}${withDigest ? `..${digestTo}` : ""}. Has the ingest run on this database?`;
+  else if (jobs.length === 0) summary.note = `No subscriber has one of their chosen collections on ${tomorrow}.`;
   if (opts.dryRun || jobs.length === 0) return summary;
 
   // Claim every job; rows that already exist were handled by an earlier run.
