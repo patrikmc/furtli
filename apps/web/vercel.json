@@ -3,12 +3,6 @@
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "bash ../../scripts/vercel-build.sh",
-  "git": {
-    "deploymentEnabled": {
-      "master": false,
-      "release": false
-    }
-  },
   "crons": [
     {
       "path": "/api/cron/emails",

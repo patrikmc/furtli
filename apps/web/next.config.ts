@@ -5,12 +5,11 @@ const nextConfig: NextConfig = {
   // Add your machine's LAN IP here if it changes.
   allowedDevOrigins: ["192.168.1.7"],
 
-  // Keep search engines out of everything except production (staging on
-  // furtli-web.vercel.app, PR previews, local). VERCEL_TARGET_ENV is "staging" for the custom
-  // environment; VERCEL_ENV is the fallback on older builds.
+  // Keep search engines out of everything except the live site. Both Vercel
+  // projects (staging and production) build as "production", so the live one
+  // is marked explicitly with APP_ENV=production (production project only).
   async headers() {
-    const target = process.env.VERCEL_TARGET_ENV ?? process.env.VERCEL_ENV;
-    if (target === "production") return [];
+    if (process.env.APP_ENV === "production") return [];
     return [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }];
   },
 };

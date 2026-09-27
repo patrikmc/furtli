@@ -6,16 +6,11 @@ name: DB migrate (Neon)
 # Two separate Neon projects: production data never shares a project, history
 # or credentials with staging.
 #
-# Called by deploy.yml before every deploy (migrate first, then ship the code
-# that expects the new schema). Can also be run by hand from the Actions tab.
+# Manual only (Actions → DB migrate → Run workflow). On every push to master
+# or release the `migrate` job in ci.yml does this automatically.
 # drizzle-kit migrate is idempotent: with nothing new it is a no-op.
 
 on:
-  workflow_call:
-    inputs:
-      environment:
-        type: string
-        required: true
   workflow_dispatch:
     inputs:
       environment:

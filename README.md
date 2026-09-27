@@ -10,7 +10,7 @@ Built on the startup-template scaffold (Next.js 16, TypeScript, Tailwind v4, Dri
 | --- | --- | --- |
 | 1. Map view | Kreis polygons, filters, detail sheet, locate, URL state | **Done** — local |
 | 2. Ingestion + nearby search | Open Data Zürich → Postgres → `/api/stations`; search from a tapped point, your location, a postcode or a Kreis; results grouped by distance | **Done** — local, first live run on your Mac |
-| 3. Production | Vercel + Neon, domain, real-phone checks; scheduled ingest after the fetch/load split | Pipeline ready: `master` → staging (furtli-web.vercel.app), `release` → furtli.ch, both behind the app's password gate. One-time setup in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| 3. Production | Vercel + Neon, domain, real-phone checks; scheduled ingest after the fetch/load split | Pipeline ready: two Vercel projects — `master` → staging (furtli-web.vercel.app), `release` → furtli.ch — both behind the app's password gate, going live only after CI + migration pass. One-time setup in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 
 ## Quickstart
 

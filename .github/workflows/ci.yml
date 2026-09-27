@@ -1,11 +1,18 @@
 name: CI
 
 # Lint, unit/component tests, ingest integration tests, typecheck, production
-# build, and the Playwright E2E suite for the map.
+# build, the Playwright E2E suite, and (on master/release only) the database
+# migration for that environment.
 #
-# Runs on every PR. Pushes to master/release don't trigger it directly: the
-# deploy workflow (deploy.yml) calls it as its first stage, so a red CI blocks
-# the staging/production deploy.
+# Runs on every PR and on every push to master and release. Required Vercel
+# Deployment Checks (Vercel builds on push, but only puts the new build live
+# once these have passed; renaming a job means updating the checks in Vercel):
+#   staging project:    ci, e2e, migrate (staging)
+#   production project: ci, e2e, migrate (production)
+#
+#   push master  -> migrate the staging database     (GitHub environment "staging")
+#   push release -> migrate furtli-production         (GitHub environment "production")
+#   pull request -> `migrate` is skipped
 #
 # The E2E tests stub the swisstopo base-map style (apps/web/e2e/fixtures.ts),
 # so they need no secrets and don't depend on swisstopo's uptime.
@@ -16,7 +23,8 @@ name: CI
 
 on:
   pull_request:
-  workflow_call:
+  push:
+    branches: [master, release]
 
 env:
   DATABASE_URL: postgres://postgres:postgres@localhost:5432/app
@@ -87,3 +95,40 @@ jobs:
           name: playwright-traces
           path: apps/web/test-results
           retention-days: 7
+
+  migrate:
+    # Named per environment, so the check names differ: "migrate (staging)" /
+    # "migrate (production)". A release commit is the same commit master already
+    # ran CI on; with a plain "migrate" name, the green staging migration would
+    # satisfy the production project's Deployment Check before production's
+    # database was migrated.
+    name: migrate (${{ github.ref_name == 'release' && 'production' || 'staging' }})
+    # Only after the tests passed, and only for the two deploy branches.
+    needs: [ci, e2e]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # The environment holds DATABASE_URL_UNPOOLED (direct connection string)
+    # and only lets master (staging) / release (production) use it.
+    environment: ${{ github.ref_name == 'release' && 'production' || 'staging' }}
+    concurrency:
+      group: migrate-${{ github.ref_name }}
+      cancel-in-progress: false
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL_UNPOOLED }}
+      DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+    steps:
+      - name: fail fast if the secret is missing
+        run: |
+          if [ -z "$DATABASE_URL_UNPOOLED" ]; then
+            echo "::error::DATABASE_URL_UNPOOLED is not set on this GitHub environment"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: apply migrations
+        run: pnpm db:migrate

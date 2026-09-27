@@ -88,7 +88,7 @@ let instance: Mailer | null = null;
 export function getMailer(): Mailer {
   if (instance) return instance;
   const key = process.env.RESEND_API_KEY;
-  if (!key && process.env.VERCEL_ENV === "production") {
+  if (!key && process.env.APP_ENV === "production") {
     console.warn("RESEND_API_KEY is not set in production: emails are only logged.");
   }
   instance = key ? new ResendMailer(key) : new DevMailer();
