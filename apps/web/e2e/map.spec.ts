@@ -5,7 +5,7 @@ import { expect, test } from "./fixtures";
 
 /** Where a centred point lands: the middle of the area the sheet/panel leaves free (MapShell's panelPadding). */
 function focusPoint(w: number, h: number) {
-  const p = w >= 768 ? { top: 110, left: 450, right: 60, bottom: 40 } : { top: 120, left: 20, right: 20, bottom: Math.round(h * 0.55) };
+  const p = w >= 768 ? { top: 110, left: 450, right: 60, bottom: 40 } : { top: 120, left: 20, right: 20, bottom: Math.round(h * 0.42) };
   return { x: p.left + (w - p.left - p.right) / 2, y: p.top + (h - p.top - p.bottom) / 2 };
 }
 

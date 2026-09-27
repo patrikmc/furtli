@@ -25,6 +25,7 @@ import { reducedMotion } from "@/lib/motion";
 import { HintToast, LocateButton, LocateInline, type LocateResult, useLocate } from "./LocateButton";
 import { NearbyPanel } from "./NearbyPanel";
 import { PlacePicker } from "./PlacePicker";
+import { SHEET_COMPACT } from "./Sheet";
 import { StationSheet } from "./StationSheet";
 import { TypeFilterChips } from "./TypeFilterChips";
 import { useMapData } from "./useMapData";
@@ -368,5 +369,5 @@ function panelPadding() {
   const h = window.innerHeight;
   return w >= 768
     ? { top: 110, left: 450, right: 60, bottom: 40 }
-    : { top: 120, left: 20, right: 20, bottom: Math.round(h * 0.55) };
+    : { top: 120, left: 20, right: 20, bottom: Math.round(h * (SHEET_COMPACT + 0.02)) };
 }

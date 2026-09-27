@@ -75,7 +75,7 @@ export function NearbyPanel({
 
   return (
     <Sheet title={anchorTitle(resolved.anchor)} subtitle={subtitle || undefined} onClose={onClose} testId="nearby-panel">
-      <div className="mt-3 space-y-3">
+      <div className="mt-2 space-y-2.5 md:mt-3 md:space-y-3">
         {picker}
 
         {/* Scope: nearby (default) or only inside the Kreis / postcode */}

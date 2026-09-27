@@ -6,6 +6,7 @@ import { nearby, resolveAnchor } from "geo";
 import { toPoints } from "@/lib/geo/group";
 import type { StationFeature } from "@/lib/geo/types";
 import { NearbyPanel } from "./NearbyPanel";
+import { Sheet } from "./Sheet";
 import { StationSheet, formatDate } from "./StationSheet";
 import { TypeFilterChips } from "./TypeFilterChips";
 
@@ -19,6 +20,24 @@ const mrh = st("Stauffacher", "mrh", 8.5287, 47.3735, {
   address: "St. Jakobstrasse 29",
   nextDates: ["2026-10-02", "2026-10-06"],
   servesPlz: ["8003", "8004"],
+});
+
+describe("Sheet", () => {
+  it("opens compact on phones; the handle toggles expanded", async () => {
+    render(
+      <Sheet title="Test" onClose={() => {}} testId="sheet">
+        <p>Inhalt</p>
+      </Sheet>,
+    );
+    const handle = screen.getByTestId("sheet-handle");
+    expect(handle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("sheet")).toHaveStyle({ "--sheet-h": "40dvh" });
+    await userEvent.click(handle);
+    expect(handle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("sheet")).toHaveStyle({ "--sheet-h": "85dvh" });
+    await userEvent.click(handle);
+    expect(handle).toHaveAttribute("aria-expanded", "false");
+  });
 });
 
 describe("StationSheet", () => {
