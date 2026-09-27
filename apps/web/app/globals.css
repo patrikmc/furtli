@@ -11,6 +11,17 @@
 
   --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bricolage Grotesque Variable", "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+
+  /* Reminder CTA: the bell rings once when the panel opens (motion-safe only). */
+  --animate-bell: bell 0.9s ease-in-out 0.5s 1;
+  @keyframes bell {
+    0%, 100% { transform: rotate(0); }
+    15% { transform: rotate(16deg); }
+    30% { transform: rotate(-14deg); }
+    45% { transform: rotate(10deg); }
+    60% { transform: rotate(-6deg); }
+    75% { transform: rotate(2deg); }
+  }
 }
 
 body {

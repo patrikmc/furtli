@@ -78,6 +78,25 @@ export function NearbyPanel({
       <div className="mt-2 space-y-2.5 md:mt-3 md:space-y-3">
         {picker}
 
+        {calendar && Object.keys(calendar.next).length > 0 && (
+          <div data-testid="kerbside" className="rounded-2xl bg-white px-3 py-2.5">
+            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">Abfuhr in {calendar.plz}</h3>
+            <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+              {(["paper", "cardboard", "organic", "waste"] as const).map((t) =>
+                calendar.next[t]?.[0] ? (
+                  <li key={t} className="flex justify-between gap-2">
+                    <span className="text-ink/60">{KERBSIDE_LABELS[t]}</span>
+                    <span className="font-bold whitespace-nowrap text-ink">{formatShort(calendar.next[t]![0])}</span>
+                  </li>
+                ) : null,
+              )}
+            </ul>
+          </div>
+        )}
+
+        {/* First CTA: free reminders (the pickup offer follows on MRH stops). */}
+        {anchorPlz && <SubscribeForm key={anchorPlz} plz={anchorPlz} source="nearby" />}
+
         {/* Scope: nearby (default) or only inside the Kreis / postcode */}
         <div className="flex flex-wrap items-center gap-2">
           <div role="radiogroup" aria-label="Suchbereich" className="flex rounded-xl bg-ink/5 p-1 text-sm font-bold">
@@ -106,24 +125,6 @@ export function NearbyPanel({
             </select>
           )}
         </div>
-
-        {calendar && Object.keys(calendar.next).length > 0 && (
-          <div data-testid="kerbside" className="rounded-2xl bg-white px-3 py-2.5">
-            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">Abfuhr in {calendar.plz}</h3>
-            <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-              {(["paper", "cardboard", "organic", "waste"] as const).map((t) =>
-                calendar.next[t]?.[0] ? (
-                  <li key={t} className="flex justify-between gap-2">
-                    <span className="text-ink/60">{KERBSIDE_LABELS[t]}</span>
-                    <span className="font-bold whitespace-nowrap text-ink">{formatShort(calendar.next[t]![0])}</span>
-                  </li>
-                ) : null,
-              )}
-            </ul>
-          </div>
-        )}
-
-        {anchorPlz && <SubscribeForm key={anchorPlz} plz={anchorPlz} source="nearby" />}
 
         <div role="tablist" aria-label="Ansicht" className="flex gap-1 border-b border-ink/10">
           <TabButton active={tab === "dates"} onClick={() => setTab("dates")}>

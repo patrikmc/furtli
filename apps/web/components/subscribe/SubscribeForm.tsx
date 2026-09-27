@@ -110,16 +110,19 @@ export function SubscribeForm({
           setOpen(true);
           track("subscribe_open", { source });
         }}
-        className="flex w-full items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2.5 text-left hover:bg-mint/60"
+        className="group flex w-full items-center gap-3 rounded-2xl bg-orange/10 px-3 py-2.5 text-left text-ink ring-1 ring-orange/30 transition hover:bg-orange/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange active:scale-[0.99]"
       >
-        <span>
-          <span className="block font-bold text-ink">Erinnerung per E-Mail</span>
-          <span className="block text-sm text-ink/65">
+        <span className="min-w-0 flex-1">
+          <span className="block leading-tight font-bold">Erinnerung per E-Mail</span>
+          <span className="mt-0.5 block text-sm text-ink/65">
             {station ? `Am Vorabend jedes Termins hier` : `Am Vorabend von Abfuhr und Recyclinghof in ${plz}`}
           </span>
         </span>
-        <span aria-hidden className="text-xl font-bold text-orange">
-          +
+        <span
+          aria-hidden
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-orange text-white transition group-hover:scale-105"
+        >
+          <BellIcon />
         </span>
       </button>
     );
@@ -130,10 +133,13 @@ export function SubscribeForm({
     <form
       data-testid="subscribe-form"
       onSubmit={submit}
-      className="space-y-3 rounded-2xl bg-white px-3 py-3 text-sm text-ink"
+      className="space-y-3 rounded-2xl bg-white px-3 py-3 text-sm text-ink ring-1 ring-orange/30"
       aria-label="Erinnerung per E-Mail"
     >
-      <p className="font-bold">
+      <p className="flex items-center gap-2 font-bold">
+        <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-orange text-white">
+          <BellIcon still />
+        </span>
         Erinnerung per E-Mail {station ? `für ${station.name}` : `für PLZ ${plz}`}
       </p>
 
@@ -229,5 +235,23 @@ export function SubscribeForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/** Bell pictogram; rings twice on first render unless the user prefers reduced motion. */
+function BellIcon({ still = false }: { still?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`h-5 w-5 origin-top ${still ? "h-4 w-4" : "motion-safe:animate-bell"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </svg>
   );
 }
