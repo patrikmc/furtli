@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapRef } from "react-map-gl/maplibre";
 import {
@@ -40,23 +39,17 @@ interface Props {
   initialStationId: string | null;
   /** The 24 city postcodes (for the picker). */
   cityPlz: readonly string[];
-  /** Base map for this route; "/" uses the env default, /maptiler a MapTiler style. */
-  basemap?: Basemap;
-  /** Show which base map is active (on comparison routes). */
-  showBasemapBadge?: boolean;
 }
 
 export default function MapShell({
   initialSearch,
   initialStationId,
   cityPlz,
-  basemap = DEFAULT_BASEMAP,
-  showBasemapBadge = false,
 }: Props) {
   const mapRef = useRef<MapRef | null>(null);
-  // Dev style switcher overrides the route's base map locally.
+  // Dev style switcher overrides the default base map locally.
   const [devBasemap, setDevBasemap] = useState<Basemap | null>(null);
-  const active = devBasemap ?? basemap;
+  const active = devBasemap ?? DEFAULT_BASEMAP;
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
@@ -251,7 +244,6 @@ export default function MapShell({
           mapRef={mapRef}
           initialView={initialView}
           styleUrl={active.url}
-          provider={active.provider}
           kreise={areas?.kreise ?? null}
           stations={stations}
           selectedStationId={stationId}
@@ -279,11 +271,6 @@ export default function MapShell({
               title="Die angezeigten Stationen und Termine sind Platzhalter."
             >
               Beispieldaten
-            </span>
-          )}
-          {showBasemapBadge && (
-            <span data-testid="basemap-badge" className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-white">
-              {active.label}
             </span>
           )}
           {process.env.NODE_ENV === "development" && <DevStylePicker active={active} onPick={setDevBasemap} />}
@@ -350,7 +337,7 @@ export default function MapShell({
   );
 }
 
-/** Dev-only: switch base map in place, and jump to the comparison views. */
+/** Dev-only: switch between the swisstopo base maps in place. */
 function DevStylePicker({ active, onPick }: { active: Basemap; onPick: (b: Basemap) => void }) {
   const options = allBasemaps();
   const list = options.some((o) => o.id === active.id) ? options : [active, ...options];
@@ -371,9 +358,6 @@ function DevStylePicker({ active, onPick }: { active: Basemap; onPick: (b: Basem
           </option>
         ))}
       </select>
-      <Link href="/compare" className="rounded-lg bg-white px-2 py-1 text-xs font-bold text-ink shadow-sm">
-        Vergleich
-      </Link>
     </div>
   );
 }

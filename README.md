@@ -68,17 +68,10 @@ Open Data Zürich ── CKAN DataStore (6 yearly calendars) ─┐
 - **When**: `pnpm ingest` by hand for now. The scheduled run (Vercel Cron) is switched off until the fetch/load split; `/api/ingest` still exists and can be called manually with `Authorization: Bearer $CRON_SECRET`. Next year's calendars load automatically once the city publishes them (usually Q4).
 - `/api/stations` and `/api/calendar?plz=` read the database and are cached for an hour at Vercel's CDN.
 
-### Comparing base maps (swisstopo vs MapTiler)
+### Base map
 
-Add a MapTiler key to `apps/web/.env.local` (`NEXT_PUBLIC_MAPTILER_KEY=…`, free at cloud.maptiler.com; allow `localhost` and your Vercel domains under *Allowed HTTP origins*), restart `pnpm dev`, then:
+The map uses swisstopo's free vector base maps (Light by default; keyless, commercial use allowed, Switzerland only). In `pnpm dev`, a small dropdown in the top bar switches between swisstopo Light and Base.
 
-| Route | What it shows |
-| --- | --- |
-| `/` | The app on swisstopo Light (production default) |
-| `/maptiler` | The same app on MapTiler; `?style=dataviz` (default), `streets-v2`, `basic-v2`, `bright-v2`, `pastel`, `backdrop`, `topo-v2`, or any MapTiler map id. Deep links work too: `/maptiler?style=pastel&kreis=4` |
-| `/compare` | Two maps side by side (stacked on phones), cameras in sync, a style picker per pane. `?left=swisstopo-light&right=maptiler-dataviz`; the camera is in the hash, so a link reproduces the exact view |
-
-Without a key, `/maptiler` explains how to add one and `/compare` compares the two swisstopo styles. Both routes are `noindex`; the MapTiler logo is shown as the free plan requires. In `pnpm dev`, the style dropdown on `/` also lists the MapTiler styles and links to `/compare`.
 To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOrigins` in `apps/web/next.config.ts` and open `http://<ip>:3000`. Geolocation needs HTTPS on phones — use a Vercel preview (or `next dev --experimental-https`) to test "Use my location".
 
 ## Analytics (Umami) and email reminders (Resend)
@@ -119,9 +112,6 @@ apps/web/
   app/page.tsx                 server page: reads ?at= / ?plz= / ?kreis= / ?station=, renders MapShell
   app/api/stations|calendar|ingest   data API + the (manual) ingest endpoint
   app/abholen/page.tsx         placeholder for the pickup booking flow (CTA target)
-  app/maptiler/page.tsx        same app on a MapTiler style (?style=)
-  app/compare/page.tsx         side-by-side base-map comparison
-  components/compare/          CompareView (synced panes), MissingKeyNotice
   components/map/
     MapShell.tsx               client: search state, URL, camera, panels
     ZurichMap.tsx              MapLibre map (ssr:false): layers, tap-to-pick, draggable pin, radius
@@ -141,8 +131,8 @@ packages/
   db/        Drizzle schema, migrations, lazy connection (getDb)
 ```
 
-- **Base map:** swisstopo Light Base Map by default; set `NEXT_PUBLIC_MAP_STYLE_URL` to switch (e.g. MapTiler). In `pnpm dev` a small dropdown in the top bar switches styles live for comparison.
-- **Labels** use whatever font the base style ships, detected at runtime, so switching provider never breaks glyphs.
+- **Base map:** swisstopo Light Base Map (free, keyless). `NEXT_PUBLIC_MAP_STYLE_URL` overrides the style URL; in `pnpm dev` a small dropdown in the top bar switches between swisstopo Light and Base.
+- **Labels** use whatever font the base style ships, detected at runtime, so changing the style never breaks glyphs.
 - **Type filter** filters the source data, not the layer, so cluster counts stay correct.
 - **Outlines:** 12 Kreise (Open Data Zürich) and the 24 city postcodes (swisstopo's official postcode directory, Zürich part only), both CC0/open, simplified to ~4 m, loaded as a separate chunk.
 - **maplibre-gl is pinned to v5.** v6 loads its web worker as a separate file that Next's bundler doesn't ship ("Worker failed to load"); upgrading needs `setWorkerUrl` plus copying the worker into `public/`.

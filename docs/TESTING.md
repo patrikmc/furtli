@@ -15,10 +15,8 @@ pnpm --filter web test:watch
 
 First E2E run on a new machine: `pnpm --filter web exec playwright install chromium`.
 
-**Why E2E doesn't need swisstopo or MapTiler:** `e2e/fixtures.ts` intercepts
-the base-map style requests (both providers) and serves blank styles; the
-Playwright web server builds with a dummy `NEXT_PUBLIC_MAPTILER_KEY` so
-`/maptiler` and `/compare` are enabled. It does this so the tests check *our* layers, UI
+**Why E2E doesn't need swisstopo:** `e2e/fixtures.ts` intercepts the
+swisstopo base-map requests and serves a blank style, so the tests check *our* layers, UI
 and URL state, and never fail because a third-party tile server is slow.
 Check the real base map by eye with `pnpm dev`.
 

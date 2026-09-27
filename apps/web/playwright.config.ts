@@ -23,9 +23,10 @@ export default defineConfig({
   ],
   webServer: {
     command: "pnpm build && pnpm start",
-    // A dummy key enables /maptiler and /compare; e2e/fixtures.ts stubs
-    // api.maptiler.com, so no real key or network is used.
-    env: { NEXT_PUBLIC_MAPTILER_KEY: "e2e-test-key" },
+    // The specs expect the 10 sample stations. An empty DATABASE_URL beats the
+    // one in .env.local (Next never overrides a variable that is already set),
+    // so /api/stations serves the seed file even if a local database is running.
+    env: { DATABASE_URL: "" },
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

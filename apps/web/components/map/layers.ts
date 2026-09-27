@@ -49,7 +49,7 @@ export const kreisLine = (active: number | null): Omitted<LineLayerSpecification
   },
 });
 
-/** `font` comes from the base style (see ZurichMap), so labels work with any provider. */
+/** `font` comes from the base style (see ZurichMap), so labels always have glyphs. */
 export const kreisLabel = (font: string[]): Omitted<SymbolLayerSpecification> => ({
   id: LAYER.kreisLabel,
   type: "symbol",

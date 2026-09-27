@@ -18,7 +18,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import type { KreisCollection, StationCollection } from "@/lib/geo/types";
 import { ZH_BOUNDS } from "@/lib/geo/kreis";
-import { DATA_ATTRIBUTION, type BasemapProvider } from "@/lib/map-config";
+import { DATA_ATTRIBUTION } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
 import { registerStationIcons } from "./icons";
 import {
@@ -71,8 +71,6 @@ export interface ZurichMapProps {
   radiusCircle?: Polygon | null;
   /** Stations in the current results; others are dimmed. null = no search. */
   highlightIds?: string[] | null;
-  /** Used to show provider-required branding (MapTiler logo). */
-  provider?: BasemapProvider;
   /** Fires on every camera change; `e.originalEvent` is set for user gestures. */
   onMove?: (e: ViewStateChangeEvent) => void;
   onMoveEnd?: (e: ViewStateChangeEvent) => void;
@@ -83,7 +81,7 @@ export interface ZurichMapProps {
 
 const INTERACTIVE = [LAYER.stations, LAYER.clusters];
 
-/** First text font the base style uses — so our labels load glyphs any provider actually has. */
+/** First text font the base style uses — so our labels load glyphs the base style actually has. */
 function detectFont(map: MaplibreMap): string[] | null {
   for (const layer of map.getStyle().layers ?? []) {
     const f = layer.type === "symbol" ? layer.layout?.["text-font"] : undefined;
@@ -107,7 +105,6 @@ export default function ZurichMap({
   focusArea = null,
   radiusCircle = null,
   highlightIds = null,
-  provider,
   onMove,
   onMoveEnd,
   hash = false,
@@ -199,7 +196,6 @@ export default function ZurichMap({
       {/* Top-right, below the header: never hidden by the bottom sheet (A6). */}
       <AttributionControl position="top-right" compact={false} customAttribution={DATA_ATTRIBUTION} />
       {showNavigation && <NavigationControl position="bottom-right" showCompass={false} />}
-      {provider === "maptiler" && <MapTilerLogo />}
 
       {styleReady && kreise && (
         <Source id="kreise" type="geojson" data={kreise}>
@@ -274,21 +270,5 @@ export default function ZurichMap({
         </Marker>
       )}
     </Map>
-  );
-}
-
-/** MapTiler's free plan requires their logo on the map. */
-function MapTilerLogo() {
-  return (
-    <a
-      href="https://www.maptiler.com"
-      target="_blank"
-      rel="noopener"
-      data-testid="maptiler-logo"
-      className="absolute bottom-2 left-2 z-[2] block"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- tiny third-party SVG, no optimisation needed */}
-      <img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler" width={67} height={20} />
-    </a>
   );
 }
