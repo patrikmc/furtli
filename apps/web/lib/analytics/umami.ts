@@ -41,9 +41,13 @@ export const UMAMI_BEFORE_SEND_JS = `window.${UMAMI_BEFORE_SEND_FN}=function(typ
  */
 export const UMAMI_OPT_OUT_JS = `try{var m=/[?&]umami=(off|on)(?:&|$)/.exec(window.location.search);if(m){if(m[1]==="off")window.localStorage.setItem("umami.disabled","1");else window.localStorage.removeItem("umami.disabled")}}catch(e){}`;
 
-/** Umami runs on production only (APP_ENV=production), or locally with UMAMI_DEV=1 for testing. */
+/**
+ * Umami runs wherever a website id is configured: production, staging and
+ * local dev alike (pre-launch, test visits are wanted). Tests and CI have no id,
+ * so they send nothing. NEXT_PUBLIC_UMAMI_DOMAINS limits which hostnames count.
+ */
 export function umamiEnabled(env: Record<string, string | undefined> = process.env): boolean {
-  return Boolean(env.NEXT_PUBLIC_UMAMI_WEBSITE_ID) && (env.APP_ENV === "production" || env.UMAMI_DEV === "1");
+  return Boolean(env.NEXT_PUBLIC_UMAMI_WEBSITE_ID);
 }
 
 type UmamiData = Record<string, string | number | boolean>;

@@ -89,13 +89,13 @@ describe("Umami opt-out (?umami=off)", () => {
 
 describe("umamiEnabled", () => {
   const id = { NEXT_PUBLIC_UMAMI_WEBSITE_ID: "abc" };
-  it("is on for production with a website id only", () => {
+  it("is on in every environment that has a website id", () => {
     expect(umamiEnabled({ ...id, APP_ENV: "production" })).toBe(true);
-    expect(umamiEnabled({ ...id, APP_ENV: "staging" })).toBe(false);
-    expect(umamiEnabled({ ...id })).toBe(false);
-    expect(umamiEnabled({ APP_ENV: "production" })).toBe(false);
+    expect(umamiEnabled({ ...id, APP_ENV: "staging" })).toBe(true);
+    expect(umamiEnabled({ ...id })).toBe(true);
   });
-  it("can be forced locally with UMAMI_DEV=1", () => {
-    expect(umamiEnabled({ ...id, UMAMI_DEV: "1" })).toBe(true);
+  it("is off without a website id (tests, CI)", () => {
+    expect(umamiEnabled({ APP_ENV: "production" })).toBe(false);
+    expect(umamiEnabled({})).toBe(false);
   });
 });
