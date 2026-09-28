@@ -32,6 +32,20 @@ export const UMAMI_ALLOWED_PARAMS = [
  */
 export const UMAMI_BEFORE_SEND_JS = `window.${UMAMI_BEFORE_SEND_FN}=function(type,payload){try{var keep=${JSON.stringify(UMAMI_ALLOWED_PARAMS)};if(payload&&typeof payload.url==="string"){var h=payload.url.indexOf("#");var u=h>=0?payload.url.slice(0,h):payload.url;var q=u.indexOf("?");if(q>=0){var src=new URLSearchParams(u.slice(q+1));var out=new URLSearchParams();src.forEach(function(v,k){if(keep.indexOf(k)>=0)out.append(k,v)});var s=out.toString();u=u.slice(0,q)+(s?"?"+s:"")}payload.url=u}if(payload&&typeof payload.referrer==="string"&&payload.referrer){try{var r=new URL(payload.referrer);payload.referrer=r.origin+r.pathname}catch(e){payload.referrer=""}}}catch(e){}return payload};`;
 
+/**
+ * Opt-out for your own devices: open any page once with `?umami=off` and this
+ * browser stops being counted (Umami honours localStorage "umami.disabled").
+ * `?umami=on` counts it again. Runs before the tracker loads, so the opt-out
+ * visit itself is not counted either. The parameter never reaches Umami (it is
+ * not on the allow-list above).
+ */
+export const UMAMI_OPT_OUT_JS = `try{var m=/[?&]umami=(off|on)(?:&|$)/.exec(window.location.search);if(m){if(m[1]==="off")window.localStorage.setItem("umami.disabled","1");else window.localStorage.removeItem("umami.disabled")}}catch(e){}`;
+
+/** Umami runs on production only (APP_ENV=production), or locally with UMAMI_DEV=1 for testing. */
+export function umamiEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return Boolean(env.NEXT_PUBLIC_UMAMI_WEBSITE_ID) && (env.APP_ENV === "production" || env.UMAMI_DEV === "1");
+}
+
 type UmamiData = Record<string, string | number | boolean>;
 type UmamiTracker = { track: (event: string, data?: UmamiData) => void };
 
@@ -46,4 +60,40 @@ export function track(event: string, data?: UmamiData): void {
   } catch {
     // Analytics must never break the app.
   }
+}
+
+/** What counts as "using the map" for the activation metric. */
+export type FirstAction = "search_map" | "search_plz" | "search_kreis" | "search_gps" | "station" | "filter";
+
+let firstActionSent = false;
+
+/** Coarse time buckets read better in Umami's event-data report than raw seconds. */
+export function secondsBucket(seconds: number): string {
+  if (seconds < 10) return "0-9s";
+  if (seconds < 30) return "10-29s";
+  if (seconds < 60) return "30-59s";
+  if (seconds < 180) return "1-3min";
+  return "3min+";
+}
+
+/**
+ * "first_action": the first meaningful map action of a page load (search,
+ * station, filter), with the seconds since the page started loading. Sent
+ * once per page load; visitors without it are the map's bounces.
+ */
+export function trackFirstAction(action: FirstAction, data: UmamiData = {}): void {
+  if (firstActionSent) return;
+  firstActionSent = true;
+  let seconds = 0;
+  try {
+    seconds = Math.round(performance.now() / 1000);
+  } catch {
+    // performance is always there in browsers; keep 0 otherwise.
+  }
+  track("first_action", { action, seconds, within: secondsBucket(seconds), ...data });
+}
+
+/** Tests only: allow first_action again. */
+export function resetFirstAction(): void {
+  firstActionSent = false;
 }

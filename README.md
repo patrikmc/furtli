@@ -78,8 +78,8 @@ To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOri
 
 ### Where visitors come from
 
-- **Umami** (cookieless, no consent banner) loads only when `NEXT_PUBLIC_UMAMI_WEBSITE_ID` is set. Before anything is sent, a small filter (`lib/analytics/umami.ts`) removes every query parameter except the UTM tags and area filters (`plz`, `kreis`, `station`, `scope`, `r`), so a tapped home location (`?at=`) never reaches Umami.
-- **UTM links** for every post, QR card and email: `?utm_source=instagram&utm_medium=social&utm_campaign=reel-wasserkocher` (scheme in the 09a posting plan). Umami's *UTM* and *Referrers* reports show visits per source.
+- **Umami** (cookieless, no consent banner) loads only on production (`APP_ENV=production`) with `NEXT_PUBLIC_UMAMI_WEBSITE_ID` set (`UMAMI_DEV=1` to try it locally). **Exclude your own devices:** open `https://furtli.ch/?umami=off` once in each browser (`?umami=on` to undo). Before anything is sent, a small filter (`lib/analytics/umami.ts`) removes every query parameter except the UTM tags and area filters (`plz`, `kreis`, `station`, `scope`, `r`), so a tapped home location (`?at=`) never reaches Umami.
+- **UTM links** for every post, QR card and email: `?utm_source=instagram&utm_medium=reel&utm_campaign=w01-launch&utm_content=p014-reel-sofa` — `utm_content` is the post ID from the campaign registry, `utm_term` an optional A/B variant (convention in the analytics tracking plan). Umami's *UTM* and *Referrers* reports show visits per source.
 - **Sign-ups are attributed too:** the first page of a visit stores its UTM tags and referring site in `sessionStorage`; the subscribe form sends them along and they're saved on the `subscriber` row (`utm_*`, `referrer`, `landing_path`, `signup_source`). Subscribers per channel:
 
   ```sql
@@ -88,7 +88,16 @@ To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOri
   from subscriber group by 1, 2 order by active desc;
   ```
 
-- **Custom events** (Umami → Events): `place_search` (by plz/kreis/map/gps), `station_open` (kind), `pickup_cta` (station), `subscribe_open`, `subscribe_submit` (source, topics, utm_source), `subscribe_confirmed`, `unsubscribe`. A funnel `subscribe_open → subscribe_submit → subscribe_confirmed` in Umami shows the drop-off.
+  Subscribers per post (last 7 days; `utm_content` = post ID):
+
+  ```sql
+  select utm_content as post_id, coalesce(utm_source, referrer, 'direct') as source, utm_campaign,
+         count(*) filter (where status = 'active') as active, count(*) as signed_up
+  from subscriber where created_at >= now() - interval '7 days'
+  group by 1, 2, 3 order by active desc, signed_up desc;
+  ```
+
+- **Custom events** (Umami → Events): `place_search` (by plz/kreis/map/gps), `station_open` (kind), `pickup_cta` (station), `subscribe_open`, `subscribe_submit` (source, topics, utm_source), `subscribe_confirmed`, `unsubscribe`, plus `first_action` (once per page load: search_map / search_plz / search_kreis / search_gps / station / filter, with seconds since load and site language: the activation metric), `search_no_result` (by, reason no_stations / filtered / outside_city, mode, radius, plz) and `panel_change` (control scope / radius / tab, value). A funnel `subscribe_open → subscribe_submit → subscribe_confirmed` in Umami shows the drop-off.
 
 ### Reminder emails
 

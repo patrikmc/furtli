@@ -17,7 +17,7 @@ import {
 
 import { LangToggle } from "@/components/i18n/LangToggle";
 import { useLang } from "@/components/i18n/LangProvider";
-import { track } from "@/lib/analytics/umami";
+import { track, trackFirstAction } from "@/lib/analytics/umami";
 import { type Radius, type SearchState, writeSearchParams } from "@/lib/geo/anchor";
 import { toPoints, todayZurich } from "@/lib/geo/group";
 import { ZH_CENTER } from "@/lib/geo/kreis";
@@ -49,7 +49,7 @@ export default function MapShell({
   initialStationId,
   cityPlz,
 }: Props) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const mapRef = useRef<MapRef | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -189,8 +189,9 @@ export default function MapShell({
     (lng: number, lat: number) => {
       setAnchor({ type: "point", lng, lat, source: "map" });
       track("place_search", { by: "map" });
+      trackFirstAction("search_map", { lang });
     },
-    [setAnchor],
+    [setAnchor, lang],
   );
 
   const pickArea = useCallback(
@@ -198,6 +199,7 @@ export default function MapShell({
       setAnchor(a);
       if (a.type === "plz") track("place_search", { by: "plz", plz: a.plz });
       else if (a.type === "kreis") track("place_search", { by: "kreis", kreis: a.kreis });
+      if (a.type === "plz" || a.type === "kreis") trackFirstAction(a.type === "plz" ? "search_plz" : "search_kreis", { lang });
       const r = areas && resolveAnchor(a, areas.kreise, areas.plz);
       if (r?.area) {
         const [w, s, e, n] = areaBounds(r.area);
@@ -210,20 +212,22 @@ export default function MapShell({
         );
       }
     },
-    [areas, setAnchor],
+    [areas, setAnchor, lang],
   );
 
   const onLocate = useCallback(
     ({ lng, lat }: LocateResult) => {
+      trackFirstAction("search_gps", { lang });
       if (areas && kreisForPoint(lng, lat, areas.kreise) === null) {
         setHint(t.map.outsideCity);
+        track("search_no_result", { by: "gps", reason: "outside_city" });
         return;
       }
       setAnchor({ type: "point", lng, lat, source: "gps" });
       track("place_search", { by: "gps" });
       flyTo(lng, lat, 14.5);
     },
-    [areas, flyTo, setAnchor, t],
+    [areas, flyTo, setAnchor, t, lang],
   );
 
   const selectStation = useCallback(
@@ -232,18 +236,53 @@ export default function MapShell({
       if (!f) return;
       setStationId(id);
       track("station_open", { kind: f.properties.kind });
+      trackFirstAction("station", { lang });
       const [lng, lat] = f.geometry.coordinates;
       flyTo(lng, lat, Math.max(mapRef.current?.getZoom() ?? 12, 14.5));
     },
-    [allStations, flyTo],
+    [allStations, flyTo, lang],
   );
 
-  const toggleKind = useCallback((k: StationKind) => {
-    setKinds((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
+  const toggleKind = useCallback(
+    (k: StationKind) => {
+      setKinds((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
+      trackFirstAction("filter", { lang });
+    },
+    [lang],
+  );
+
+  const setMode = useCallback((mode: NearbyMode) => {
+    setSearch((s) => ({ ...s, mode }));
+    track("panel_change", { control: "scope", value: mode });
+  }, []);
+  const setRadius = useCallback((radius: Radius) => {
+    setSearch((s) => ({ ...s, radius, mode: "nearby" }));
+    track("panel_change", { control: "radius", value: radius });
   }, []);
 
-  const setMode = useCallback((mode: NearbyMode) => setSearch((s) => ({ ...s, mode })), []);
-  const setRadius = useCallback((radius: Radius) => setSearch((s) => ({ ...s, radius, mode: "nearby" })), []);
+  // "search_no_result": a search that shows no station (e.g. strict scope in a
+  // Kreis without an MRH stop). Once per distinct search, so re-renders don't
+  // count twice; tells us where coverage or the default radius falls short.
+  const lastNoResult = useRef<string | null>(null);
+  useEffect(() => {
+    const a = search.anchor;
+    if (!a || !resolved || !stations || results.length > 0) {
+      lastNoResult.current = null;
+      return;
+    }
+    const by = a.type === "point" ? (a.source ?? "map") : a.type;
+    const filtered = kinds.length < STATION_KINDS.length;
+    const key = JSON.stringify([a, search.mode, search.radius, kinds]);
+    if (key === lastNoResult.current) return;
+    lastNoResult.current = key;
+    track("search_no_result", {
+      by,
+      reason: filtered ? "filtered" : "no_stations",
+      mode: search.mode,
+      radius: search.radius,
+      ...(resolved.plz ? { plz: resolved.plz } : {}),
+    });
+  }, [search, resolved, stations, results, kinds]);
 
   const { locate, busy: locating } = useLocate(onLocate, setHint);
   const picker = (

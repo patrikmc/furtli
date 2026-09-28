@@ -18,7 +18,7 @@ const TEXT: Record<Lang, { title: string; intro: string; sections: { h: string; 
     intro: "Furtli zeigt dir, wo und wann du in Zürich entsorgen kannst. Die Karte funktioniert ohne Konto. Wir sammeln so wenig Daten wie möglich.",
     sections: [
       { h: "Karte", p: "Wenn du auf die Karte tippst oder deinen Standort nutzt, wird die Suche in deinem Browser berechnet. Dein Standort wird nicht gespeichert." },
-      { h: "Statistik", p: "Wir zählen Besuche mit Umami, ohne Cookies und ohne Profile. Gespeichert werden die besuchte Seite, die Herkunft (z. B. ein Link aus einem Newsletter), Browser- und Gerätetyp sowie das Land. Den getippten Punkt auf der Karte übermitteln wir nicht." },
+      { h: "Statistik", p: "Wir zählen Besuche mit Umami, ohne Cookies und ohne Profile. Gespeichert werden die besuchte Seite, die Herkunft (z. B. ein Link aus einem Newsletter), Browser- und Gerätetyp, das Land sowie welche Funktionen der Karte genutzt werden (z. B. Suche nach Postleitzahl, Öffnen eines Standorts), ohne Bezug zu deiner Person. Den getippten Punkt auf der Karte übermitteln wir nicht." },
       { h: "Spracheinstellung", p: "Wenn du die Sprache wechselst oder einem Link in einer englischen E-Mail folgst, merkt sich dein Browser die Sprache in einem Cookie (furtli_lang, ein Jahr). Es enthält nur «de» oder «en»." },
       { h: "E-Mail-Erinnerungen", p: "Wenn du Erinnerungen abonnierst, speichern wir deine E-Mail-Adresse, deine Postleitzahlen oder gewählten Standorte, deine Auswahl, die Sprache der E-Mails, den Zeitpunkt deiner Zustimmung und über welchen Link du zu uns gekommen bist. Wir schicken erst etwas, wenn du den Link in der Bestätigungs-E-Mail angeklickt hast. Abmelden kannst du dich jederzeit über den Link in jeder E-Mail; danach schicken wir nichts mehr." },
     ],
@@ -32,7 +32,7 @@ const TEXT: Record<Lang, { title: string; intro: string; sections: { h: string; 
     intro: "Furtli shows you where and when to get rid of things in Zurich. The map works without an account. We collect as little data as possible.",
     sections: [
       { h: "Map", p: "When you tap the map or use your location, the search is calculated in your browser. Your location is not stored." },
-      { h: "Statistics", p: "We count visits with Umami, without cookies and without profiles. We store the page visited, where the visit came from (e.g. a link in a newsletter), browser and device type, and the country. We don't send the point you tapped on the map." },
+      { h: "Statistics", p: "We count visits with Umami, without cookies and without profiles. We store the page visited, where the visit came from (e.g. a link in a newsletter), browser and device type, the country, and which map features are used (e.g. searching by postcode, opening a location), without linking this to you. We don't send the point you tapped on the map." },
       { h: "Language setting", p: "When you switch the language or follow a link in an English email, your browser remembers the language in a cookie (furtli_lang, one year). It only contains “de” or “en”." },
       { h: "Email reminders", p: "When you subscribe to reminders, we store your email address, your postcodes or chosen stops, your choices, the language of the emails, when you gave your consent and which link brought you to us. We send nothing until you've clicked the link in the confirmation email. You can unsubscribe at any time with the link in every email; after that we send nothing more." },
     ],

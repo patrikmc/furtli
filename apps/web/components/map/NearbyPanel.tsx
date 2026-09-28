@@ -8,6 +8,7 @@ import { kindShort, materialLabel, timeWindow } from "@/lib/geo/kinds";
 import { formatDate, formatShortDate } from "@/lib/i18n/format";
 import { TYPE_LABELS } from "@/lib/email/copy";
 import { useLang } from "@/components/i18n/LangProvider";
+import { track } from "@/lib/analytics/umami";
 import type { PlzCalendar } from "@/lib/geo/types";
 import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
 import { KindDot } from "./KindDot";
@@ -116,10 +117,10 @@ export function NearbyPanel({
         </div>
 
         <div role="tablist" aria-label={t.nearby.viewAria} className="flex gap-1 border-b border-ink/10">
-          <TabButton active={tab === "dates"} onClick={() => setTab("dates")}>
+          <TabButton active={tab === "dates"} onClick={() => { setTab("dates"); track("panel_change", { control: "tab", value: "dates" }); }}>
             {t.nearby.dates(dateCount)}
           </TabButton>
-          <TabButton active={tab === "places"} onClick={() => setTab("places")}>
+          <TabButton active={tab === "places"} onClick={() => { setTab("places"); track("panel_change", { control: "tab", value: "places" }); }}>
             {t.nearby.places(results.length)}
           </TabButton>
         </div>

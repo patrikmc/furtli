@@ -11,12 +11,13 @@ import { LangProvider } from "@/components/i18n/LangProvider";
 import { HTML_LANG } from "@/lib/i18n/lang";
 import { getLang } from "@/lib/i18n/server";
 import { ui } from "@/lib/i18n/ui";
-import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS } from "@/lib/analytics/umami";
+import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled } from "@/lib/analytics/umami";
 
-// Umami is only loaded when a website id is configured (production).
-// NEXT_PUBLIC_UMAMI_DOMAINS limits counting to the real domain(s), so a
-// preview deployment with the same env doesn't pollute the numbers.
-const umamiId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
+// Umami is only loaded on production (APP_ENV=production) with a website id
+// configured; staging, previews, dev and tests send nothing (UMAMI_DEV=1 to
+// test locally). NEXT_PUBLIC_UMAMI_DOMAINS additionally limits counting to the
+// real domain(s).
+const umamiId = umamiEnabled() ? process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID : undefined;
 const umamiSrc = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL || "https://cloud.umami.is/script.js";
 const umamiDomains = process.env.NEXT_PUBLIC_UMAMI_DOMAINS;
 
@@ -41,9 +42,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <AttributionCapture />
         {umamiId && (
           <>
-            {/* Strips the tapped location (?at=) etc. from what Umami receives; must exist before the tracker runs. */}
+            {/* ?umami=off opt-out, and strips the tapped location (?at=) etc. from what Umami receives; must exist before the tracker runs. */}
             <Script id="umami-before-send" strategy="beforeInteractive">
-              {UMAMI_BEFORE_SEND_JS}
+              {UMAMI_OPT_OUT_JS + UMAMI_BEFORE_SEND_JS}
             </Script>
             <Script
               src={umamiSrc}

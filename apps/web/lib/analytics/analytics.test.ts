@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseAttribution } from "./attribution";
-import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS } from "./umami";
+import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled } from "./umami";
 
 type Payload = { url?: string; referrer?: string; website?: string };
 
@@ -58,5 +58,44 @@ describe("parseAttribution", () => {
   it("ignores own-site referrers and bad input", () => {
     expect(parseAttribution("https://furtli.ch/abholen", "https://furtli.ch/")).toEqual({ landingPath: "/abholen" });
     expect(parseAttribution("not a url", "")).toEqual({});
+  });
+});
+
+describe("Umami opt-out (?umami=off)", () => {
+  function run(search: string, stored: Record<string, string> = {}) {
+    const store = { ...stored };
+    const w = {
+      location: { search },
+      localStorage: {
+        setItem: (k: string, v: string) => (store[k] = v),
+        removeItem: (k: string) => delete store[k],
+      },
+    };
+    new Function("window", UMAMI_OPT_OUT_JS)(w);
+    return store;
+  }
+
+  it("disables this browser with ?umami=off and re-enables with ?umami=on", () => {
+    expect(run("?plz=8004&umami=off")).toEqual({ "umami.disabled": "1" });
+    expect(run("?umami=on", { "umami.disabled": "1" })).toEqual({});
+  });
+
+  it("leaves other visits alone and never throws", () => {
+    expect(run("?utm_source=instagram", { keep: "x" })).toEqual({ keep: "x" });
+    expect(run("?umami=offline")).toEqual({});
+    expect(() => new Function("window", UMAMI_OPT_OUT_JS)({})).not.toThrow();
+  });
+});
+
+describe("umamiEnabled", () => {
+  const id = { NEXT_PUBLIC_UMAMI_WEBSITE_ID: "abc" };
+  it("is on for production with a website id only", () => {
+    expect(umamiEnabled({ ...id, APP_ENV: "production" })).toBe(true);
+    expect(umamiEnabled({ ...id, APP_ENV: "staging" })).toBe(false);
+    expect(umamiEnabled({ ...id })).toBe(false);
+    expect(umamiEnabled({ APP_ENV: "production" })).toBe(false);
+  });
+  it("can be forced locally with UMAMI_DEV=1", () => {
+    expect(umamiEnabled({ ...id, UMAMI_DEV: "1" })).toBe(true);
   });
 });
