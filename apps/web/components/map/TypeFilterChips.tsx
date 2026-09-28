@@ -14,7 +14,10 @@ export function TypeFilterChips({
 }) {
   const { lang, t } = useLang();
   return (
-    <div role="group" aria-label={t.map.filterAria} className="flex gap-2 overflow-x-auto pb-1">
+    // Wraps onto a second line on phones instead of scrolling sideways: a
+    // horizontal scroll strip on top of the map is hard to discover and the
+    // map steals the swipe. One line from md up.
+    <div role="group" aria-label={t.map.filterAria} className="flex flex-wrap gap-1.5 md:flex-nowrap md:gap-2">
       {STATION_KINDS.map((kind) => {
         const on = active.includes(kind);
         return (
@@ -23,7 +26,7 @@ export function TypeFilterChips({
             type="button"
             aria-pressed={on}
             onClick={() => onToggle(kind)}
-            className={`pointer-events-auto flex shrink-0 items-center gap-2 rounded-full py-1.5 pr-3.5 pl-1.5 text-sm font-bold shadow-sm transition ${
+            className={`pointer-events-auto flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-[13px] font-bold shadow-sm transition md:gap-2 md:py-1.5 md:pr-3.5 md:pl-1.5 md:text-sm ${
               on ? "bg-white text-ink" : "bg-white/70 text-ink/45"
             }`}
           >

@@ -85,7 +85,7 @@ export function HintToast({ hint, onDismiss }: { hint: string | null; onDismiss:
   return (
     <p
       role="status"
-      className="pointer-events-auto absolute inset-x-3 top-[6.75rem] z-30 mx-auto max-w-md rounded-xl bg-ink px-3 py-2 text-sm text-white shadow-lg"
+      className="pointer-events-auto absolute inset-x-3 top-[calc(var(--header-h,6.25rem)+0.5rem)] z-30 mx-auto max-w-md rounded-xl bg-ink px-3 py-2 text-sm text-white shadow-lg"
       onClick={onDismiss}
     >
       {hint}

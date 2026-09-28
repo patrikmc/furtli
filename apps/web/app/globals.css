@@ -45,7 +45,8 @@ body {
   background: rgba(255, 255, 255, 0.85) !important;
 }
 
-/* Attribution sits top-right, just below the header, so sheets never cover it. */
+/* Attribution sits top-right, just below the header (its height is measured
+   by MapShell as --header-h), so sheets never cover it. */
 .maplibregl-ctrl-top-right {
-  top: 6.25rem !important;
+  top: calc(var(--header-h, 5.75rem) + 0.25rem) !important;
 }

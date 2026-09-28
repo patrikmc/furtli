@@ -51,6 +51,22 @@ export default function MapShell({
 }: Props) {
   const { t } = useLang();
   const mapRef = useRef<MapRef | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  // The header's height depends on the screen width and language (the filter
+  // chips wrap on phones). Everything placed below it (attribution, hint toast,
+  // map padding) reads --header-h instead of a fixed offset.
+  useEffect(() => {
+    const header = headerRef.current;
+    const root = rootRef.current;
+    if (!header || !root) return;
+    const update = () => root.style.setProperty("--header-h", `${Math.round(header.getBoundingClientRect().height)}px`);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(header);
+    return () => ro.disconnect();
+  }, []);
   // Dev style switcher overrides the default base map locally.
   const [devBasemap, setDevBasemap] = useState<Basemap | null>(null);
   const active = devBasemap ?? DEFAULT_BASEMAP;
@@ -242,7 +258,7 @@ export default function MapShell({
 
   // ---- render -------------------------------------------------------------------------
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#E9ECE8]">
+    <div ref={rootRef} className="relative h-dvh w-full overflow-hidden bg-[#E9ECE8]">
       {initialView && (
         <ZurichMap
           mapRef={mapRef}
@@ -263,7 +279,10 @@ export default function MapShell({
       )}
 
       {/* Top bar: brand, sample-data badge, filters */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 bg-gradient-to-b from-paper/95 via-paper/70 to-transparent px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-4">
+      <header
+        ref={headerRef}
+        data-map-header
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 bg-gradient-to-b from-paper/95 via-paper/70 to-transparent px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-4">
         <div className="flex items-center gap-2">
           <span className="pointer-events-auto font-display text-2xl font-extrabold tracking-tight text-ink">
             furtli<span className="text-orange">.</span>
@@ -370,7 +389,10 @@ function DevStylePicker({ active, onPick }: { active: Basemap; onPick: (b: Basem
 function panelPadding() {
   const w = window.innerWidth;
   const h = window.innerHeight;
+  // Below the header, whose height varies (chips wrap on phones).
+  const headerBottom = document.querySelector("[data-map-header]")?.getBoundingClientRect().bottom;
+  const top = Math.round((headerBottom ?? 100) + 10);
   return w >= 768
-    ? { top: 110, left: 450, right: 60, bottom: 40 }
-    : { top: 120, left: 20, right: 20, bottom: Math.round(h * (SHEET_COMPACT + 0.02)) };
+    ? { top, left: 450, right: 60, bottom: 40 }
+    : { top, left: 20, right: 20, bottom: Math.round(h * (SHEET_COMPACT + 0.02)) };
 }

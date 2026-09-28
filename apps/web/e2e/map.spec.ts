@@ -152,3 +152,18 @@ test("geolocation: nearby list from my position, which is never written to the U
   await expect(panel).toContainText("Kreis 5 · 8005");
   await expect(page).not.toHaveURL(/at=/);
 });
+
+test("on a small phone all four filter chips fit on screen (they wrap, no sideways scrolling)", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto("/");
+  await mapCentre(page);
+  for (const name of ["Mobiler Recyclinghof", "Sonderabfall", "Sammelstelle", "Recyclinghof"]) {
+    const box = (await page.getByRole("button", { name, exact: true }).boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+  }
+  // The map attribution sits below the (now taller) header, not behind the chips.
+  const chips = (await page.getByRole("group", { name: "Stationstypen filtern" }).boundingBox())!;
+  const attrib = (await page.locator(".maplibregl-ctrl-attrib").boundingBox())!;
+  expect(attrib.y).toBeGreaterThanOrEqual(chips.y + chips.height);
+});
