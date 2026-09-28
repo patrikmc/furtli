@@ -1,18 +1,24 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { emailLog, eq, station, subscriber, type Database, type Subscriber } from "db";
-import { asLang } from "@/lib/email/copy";
+import { and, emailLog, eq, isNotNull, sql, station, subscriber, subscription, type Database, type Subscriber } from "db";
 import { confirmPageUrl, listUnsubscribeHeaders, mapPath, trackedUrl, unsubscribePageUrl } from "@/lib/email/links";
 import type { Mailer } from "@/lib/email/mailer";
 import { renderConfirm, renderWelcome } from "@/lib/email/render";
-import type { SubscriptionSummary } from "@/lib/email/types";
 import { zurichToday } from "@/lib/server/today";
 import { loadPlanEvents } from "./events";
-import { CONSENT_TEXT, STATION_TOPICS, prefsFromInput, type Prefs, type SubscribeInput, type Topic } from "./input";
+import { CONSENT_TEXT, STATION_TOPICS, targetFromInput, type SubscribeInput, type TargetInput, type Topic } from "./input";
 import { addDays, itemsFor } from "./plan";
+import { activeTargets, loadTargets, pendingSettingsOf, primaryTarget, settingsOf, summaryOf, type Settings } from "./targets";
 
 /**
  * Subscribe → confirm (double opt-in) → unsubscribe.
+ *
+ * An address can follow several things (a postcode, a station, …), one
+ * `subscription` row each. Signing up again ADDS a target, or changes the
+ * collection types of a target it already follows; it never replaces the
+ * others. Account settings are shared: the evening reminder and the weekly
+ * overview cover everything followed, and once switched on by any sign-up
+ * they stay on (switching off comes with the self-service page).
  *
  * Every change of preferences needs a click in an email to the address, so
  * nobody can sign up (or re-configure) someone else. The API always answers
@@ -35,30 +41,26 @@ export function newToken(): string {
   return randomBytes(24).toString("base64url");
 }
 
-function prefsColumns(p: Prefs) {
-  return { lang: p.lang, plz: p.plz, stationId: p.stationId, topics: p.topics, reminders: p.reminders, digest: p.digest };
-}
-
 async function stationInfo(db: Database, id: string | null) {
   if (!id) return null;
   const [s] = await db.select({ id: station.id, name: station.name, kind: station.kind }).from(station).where(eq(station.id, id)).limit(1);
   return s ?? null;
 }
 
-async function summaryFor(db: Database, p: Prefs): Promise<SubscriptionSummary> {
-  const s = await stationInfo(db, p.stationId);
-  return { plz: p.plz, stationName: s?.name ?? null, topics: p.topics, reminders: p.reminders, digest: p.digest };
+/** Record the requested types for one target; they become active on confirmation. */
+async function requestTarget(db: Database, subscriberId: number, t: TargetInput, source: string | null, now: Date) {
+  await db
+    .insert(subscription)
+    .values({ subscriberId, plz: t.plz, stationId: t.stationId, pendingTopics: t.topics, source, createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({
+      target: [subscription.subscriberId, subscription.plz, subscription.stationId],
+      set: { pendingTopics: t.topics, updatedAt: now },
+    });
 }
 
-function prefsOf(s: Subscriber): Prefs {
-  return {
-    lang: asLang(s.lang),
-    plz: s.plz,
-    stationId: s.stationId,
-    topics: s.topics as Topic[],
-    reminders: s.reminders,
-    digest: s.digest,
-  };
+/** Settings after this sign-up: latest language; reminders/digest stay on once chosen. */
+function mergeSettings(current: Settings, input: SubscribeInput): Settings {
+  return { lang: input.lang, reminders: current.reminders || input.reminders, digest: current.digest || input.digest };
 }
 
 export type SubscribeOutcome = "sent" | "throttled" | "ignored";
@@ -67,10 +69,11 @@ export async function subscribe(deps: Deps, input: SubscribeInput): Promise<Subs
   if (input.website) return "ignored"; // honeypot filled in: a bot
   const { db, mailer } = deps;
   const now = deps.now ?? new Date();
-  const prefs = prefsFromInput(input);
+  const target = targetFromInput(input);
+  const source = input.source ?? null;
 
-  if (prefs.stationId) {
-    const s = await stationInfo(db, prefs.stationId);
+  if (target.stationId) {
+    const s = await stationInfo(db, target.stationId);
     if (!s || !STATION_TOPICS.includes(s.kind as Topic)) throw new SubscriptionInputError("Unknown station");
   }
 
@@ -86,11 +89,13 @@ export async function subscribe(deps: Deps, input: SubscribeInput): Promise<Subs
       .values({
         email: input.email,
         status: "pending",
-        ...prefsColumns(prefs),
+        lang: input.lang,
+        reminders: input.reminders,
+        digest: input.digest,
         confirmToken: newToken(),
         unsubscribeToken: newToken(),
         ...consent,
-        signupSource: input.source ?? null,
+        signupSource: source,
         utmSource: a.utmSource ?? null,
         utmMedium: a.utmMedium ?? null,
         utmCampaign: a.utmCampaign ?? null,
@@ -109,28 +114,40 @@ export async function subscribe(deps: Deps, input: SubscribeInput): Promise<Subs
     const token = row.confirmToken ?? newToken();
     if (row.status === "active") {
       isUpdate = true;
+      const pendingPrefs = mergeSettings(pendingSettingsOf(row) ?? settingsOf(row), input);
       [row] = await db
         .update(subscriber)
-        .set({ pendingPrefs: prefs, confirmToken: token, ...consent, updatedAt: now })
+        .set({ pendingPrefs, confirmToken: token, ...consent, updatedAt: now })
         .where(eq(subscriber.id, row.id))
         .returning();
     } else {
+      // Pending: add to what is waiting for confirmation. Unsubscribed: start afresh.
+      const fresh = row.status === "unsubscribed";
+      if (fresh) {
+        await db
+          .update(subscription)
+          .set({ topics: sql`'{}'::event_type[]`, pendingTopics: null, updatedAt: now })
+          .where(eq(subscription.subscriberId, row.id));
+      }
+      const settings = fresh ? { lang: input.lang, reminders: input.reminders, digest: input.digest } : mergeSettings(settingsOf(row), input);
       [row] = await db
         .update(subscriber)
-        .set({ status: "pending", ...prefsColumns(prefs), pendingPrefs: null, confirmToken: token, ...consent, updatedAt: now })
+        .set({ status: "pending", ...settings, pendingPrefs: null, confirmToken: token, ...consent, updatedAt: now })
         .where(eq(subscriber.id, row.id))
         .returning();
     }
   }
+  await requestTarget(db, row.id, target, source, now);
 
   if (row.confirmSentAt && now.getTime() - row.confirmSentAt.getTime() < RESEND_AFTER_MS) return "throttled";
 
-  const lang = prefs.lang;
+  const rows = await loadTargets(db, [row.id]);
+  const settings = pendingSettingsOf(row) ?? settingsOf(row);
   const email = await renderConfirm({
-    lang,
+    lang: settings.lang,
     confirmUrl: confirmPageUrl(row.confirmToken!),
-    mapUrl: trackedUrl(mapPath(prefs), "welcome"),
-    summary: await summaryFor(db, prefs),
+    mapUrl: trackedUrl(mapPath(target), "welcome"),
+    summary: summaryOf(rows, settings, "preview"),
     isUpdate,
   });
   const [result] = await mailer.sendBatch([
@@ -154,13 +171,14 @@ export async function subscribe(deps: Deps, input: SubscribeInput): Promise<Subs
   return "sent";
 }
 
-/** For the confirmation page: what is about to be confirmed. */
+/** For the confirmation page: the whole subscription as it will be, with new/changed parts marked. */
 export async function confirmPreview(db: Database, token: string, now = new Date()) {
   const [s] = await db.select().from(subscriber).where(eq(subscriber.confirmToken, token)).limit(1);
   if (!s) return null;
   const expired = !!s.confirmSentAt && now.getTime() - s.confirmSentAt.getTime() > CONFIRM_VALID_MS;
-  const prefs = (s.pendingPrefs as Prefs | null) ?? prefsOf(s);
-  return { expired, isUpdate: s.status === "active", lang: prefs.lang, summary: await summaryFor(db, prefs) };
+  const settings = pendingSettingsOf(s) ?? settingsOf(s);
+  const summary = summaryOf(await loadTargets(db, [s.id]), settings, "preview");
+  return { expired, isUpdate: s.status === "active", lang: settings.lang, summary };
 }
 
 export type ConfirmOutcome = "confirmed" | "invalid" | "expired";
@@ -172,13 +190,24 @@ export async function confirm(deps: Deps, token: string): Promise<ConfirmOutcome
   if (!s) return "invalid";
   if (s.confirmSentAt && now.getTime() - s.confirmSentAt.getTime() > CONFIRM_VALID_MS) return "expired";
 
-  const pending = s.pendingPrefs as Prefs | null;
+  const pending = pendingSettingsOf(s);
   const wasActive = s.status === "active";
+  // Every requested target becomes active (added or changed); the others stay as they are.
+  await db
+    .update(subscription)
+    .set({
+      topics: sql`${subscription.pendingTopics}`,
+      pendingTopics: null,
+      // Raw sql params bypass Drizzle's type mapping: postgres-js (production) rejects a Date here, PGlite (tests) accepts it.
+      confirmedAt: sql`coalesce(${subscription.confirmedAt}, ${now.toISOString()}::timestamptz)`,
+      updatedAt: now,
+    })
+    .where(and(eq(subscription.subscriberId, s.id), isNotNull(subscription.pendingTopics)));
   const [row] = await db
     .update(subscriber)
     .set({
       status: "active",
-      ...(pending ? prefsColumns(pending) : {}),
+      ...(pending ?? {}),
       pendingPrefs: null,
       confirmToken: null,
       confirmedAt: s.confirmedAt ?? now,
@@ -194,15 +223,16 @@ export async function confirm(deps: Deps, token: string): Promise<ConfirmOutcome
 
 async function sendWelcome(deps: Deps, s: Subscriber, now: Date) {
   const { db, mailer } = deps;
-  const prefs = prefsOf(s);
+  const settings = settingsOf(s);
+  const rows = await loadTargets(db, [s.id]);
   const today = zurichToday(now);
   const events = await loadPlanEvents(db, addDays(today, 1), addDays(today, 35));
-  const next = itemsFor({ id: s.id, plz: s.plz, stationId: s.stationId, topics: prefs.topics }, events).slice(0, 4);
+  const next = itemsFor({ id: s.id, targets: activeTargets(rows) }, events).slice(0, 4);
   const email = await renderWelcome({
-    lang: prefs.lang,
-    summary: await summaryFor(db, prefs),
+    lang: settings.lang,
+    summary: summaryOf(rows, settings),
     next,
-    mapUrl: trackedUrl(mapPath(prefs), "welcome"),
+    mapUrl: trackedUrl(mapPath(primaryTarget(rows)), "welcome"),
     unsubscribeUrl: unsubscribePageUrl(s.unsubscribeToken),
   });
   const [claimed] = await db
@@ -236,6 +266,8 @@ export async function unsubscribe(deps: Deps, token: string): Promise<Unsubscrib
       .update(subscriber)
       .set({ status: "unsubscribed", unsubscribedAt: now, confirmToken: null, pendingPrefs: null, updatedAt: now })
       .where(eq(subscriber.id, s.id));
+    // Keep what they followed (for the record); drop anything still waiting for confirmation.
+    await deps.db.update(subscription).set({ pendingTopics: null, updatedAt: now }).where(eq(subscription.subscriberId, s.id));
   }
   return "unsubscribed";
 }

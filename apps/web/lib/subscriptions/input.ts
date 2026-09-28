@@ -56,16 +56,13 @@ export const subscribeSchema = z
 
 export type SubscribeInput = z.output<typeof subscribeSchema>;
 
-/** Preferences as stored (and as held in pending_prefs until confirmed). */
-export interface Prefs {
-  lang: "de" | "en";
+/** One sign-up = one target (a postcode or a station) plus account settings. */
+export interface TargetInput {
   plz: string | null;
   stationId: string | null;
   topics: Topic[];
-  reminders: boolean;
-  digest: boolean;
 }
 
-export function prefsFromInput(i: SubscribeInput): Prefs {
-  return { lang: i.lang, plz: i.plz, stationId: i.stationId, topics: i.topics, reminders: i.reminders, digest: i.digest };
+export function targetFromInput(i: SubscribeInput): TargetInput {
+  return { plz: i.plz, stationId: i.stationId, topics: i.topics };
 }

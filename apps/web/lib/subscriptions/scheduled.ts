@@ -1,19 +1,20 @@
 import "server-only";
 import { and, emailLog, eq, inArray, subscriber, type Database, type Subscriber } from "db";
-import { asLang } from "@/lib/email/copy";
 import { listUnsubscribeHeaders, mapPath, trackedUrl, unsubscribePageUrl } from "@/lib/email/links";
 import { emailFrom, type Mailer, type OutgoingEmail, type SendResult } from "@/lib/email/mailer";
 import { renderDigest, renderReminder, type RenderedEmail } from "@/lib/email/render";
 import type { EmailItem } from "@/lib/email/types";
 import { zurichToday } from "@/lib/server/today";
 import { loadPlanEvents } from "./events";
-import type { Topic } from "./input";
 import { addDays, planDigests, planReminders, weekday } from "./plan";
+import { activeTargets, bySubscriber, loadTargets, primaryTarget, settingsOf, summaryOf, type TargetRow } from "./targets";
 
 /**
  * The daily email run (Vercel Cron → /api/cron/emails, late afternoon):
- * - reminders for tomorrow's collections, one email per subscriber;
- * - on Sundays, the weekly overview for Monday–Sunday.
+ * - reminders for tomorrow's collections, one email per subscriber covering
+ *   everything they follow;
+ * - on Sundays, the weekly overview for Monday–Sunday, likewise for all of it.
+ * Every email ends with the subscriber's whole subscription ("why you get this").
  *
  * Each email is "claimed" in email_log before it is sent (unique on
  * subscriber + kind + key), so overlapping or repeated runs never send the
@@ -45,8 +46,8 @@ interface Job {
   render: () => Promise<RenderedEmail>;
 }
 
-function planSub(s: Subscriber) {
-  return { id: s.id, plz: s.plz, stationId: s.stationId, topics: s.topics as Topic[] };
+function planSub(s: Subscriber, rows: TargetRow[]) {
+  return { id: s.id, targets: activeTargets(rows), row: s, rows };
 }
 
 function pickupUrl(items: EmailItem[], campaign: "reminder" | "digest"): string | null {
@@ -66,16 +67,18 @@ export async function runScheduledEmails(
   const digestTo = addDays(tomorrow, 6);
 
   const subs = await db.select().from(subscriber).where(eq(subscriber.status, "active"));
+  const targets = bySubscriber(await loadTargets(db, subs.map((s) => s.id)));
+  const planned = subs.map((s) => planSub(s, targets.get(s.id) ?? []));
   const events = await loadPlanEvents(db, tomorrow, withDigest ? digestTo : tomorrow);
 
   const reminders = planReminders(
-    subs.filter((s) => s.reminders).map((s) => ({ ...planSub(s), row: s })),
+    planned.filter((p) => p.row.reminders),
     events,
     tomorrow,
   );
   const digests = withDigest
     ? planDigests(
-        subs.filter((s) => s.digest).map((s) => ({ ...planSub(s), row: s })),
+        planned.filter((p) => p.row.digest),
         events,
         tomorrow,
         digestTo,
@@ -89,10 +92,11 @@ export async function runScheduledEmails(
       key: tomorrow,
       render: () =>
         renderReminder({
-          lang: asLang(sub.row.lang),
+          lang: settingsOf(sub.row).lang,
           date: tomorrow,
           items,
-          mapUrl: trackedUrl(mapPath(sub.row), "reminder"),
+          summary: summaryOf(sub.rows, settingsOf(sub.row)),
+          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "reminder"),
           pickupUrl: pickupUrl(items, "reminder"),
           unsubscribeUrl: unsubscribePageUrl(sub.row.unsubscribeToken),
         }),
@@ -103,11 +107,12 @@ export async function runScheduledEmails(
       key: `${tomorrow}..${digestTo}`,
       render: () =>
         renderDigest({
-          lang: asLang(sub.row.lang),
+          lang: settingsOf(sub.row).lang,
           from: tomorrow,
           to: digestTo,
           days,
-          mapUrl: trackedUrl(mapPath(sub.row), "digest"),
+          summary: summaryOf(sub.rows, settingsOf(sub.row)),
+          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "digest"),
           pickupUrl: pickupUrl(
             days.flatMap((d) => d.items),
             "digest",

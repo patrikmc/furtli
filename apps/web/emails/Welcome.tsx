@@ -35,7 +35,7 @@ export default function Welcome({ lang, summary, next, mapUrl, unsubscribeUrl }:
 
 Welcome.PreviewProps = {
   lang: "de",
-  summary: { plz: "8004", stationName: null, topics: ["cardboard", "paper", "mrh"], reminders: true, digest: false },
+  summary: { targets: [{ plz: "8004", stationName: null, topics: ["cardboard", "paper", "mrh"] }], reminders: true, digest: false },
   next: [
     { type: "cardboard", date: "2026-10-28" },
     { type: "mrh", date: "2026-10-30", stationName: "Stauffacher", address: "St. Jakobstrasse 29", time: "15–19 Uhr" },

@@ -11,14 +11,14 @@ import postgres from "postgres";
  *   DATABASE_URL_UNPOOLED=<neon direct url> pnpm db:reset
  *   DATABASE_URL_UNPOOLED=<neon direct url> pnpm db:reset -- --user-data-only
  *
- * --user-data-only  keep stations/calendars, remove only subscribers + email log
+ * --user-data-only  keep stations/calendars, remove only subscribers, their subscriptions + email log
  *
  * Asks you to type the database host before deleting anything. Without a
  * terminal (CI), set CONFIRM_HOST=<host> instead.
  */
 
-const ALL_TABLES = ["email_log", "subscriber", "collection_event", "station", "ingest_run", "source_file"];
-const USER_TABLES = ["email_log", "subscriber"];
+const ALL_TABLES = ["email_log", "subscription", "subscriber", "collection_event", "station", "ingest_run", "source_file"];
+const USER_TABLES = ["email_log", "subscription", "subscriber"];
 
 async function main() {
   const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;

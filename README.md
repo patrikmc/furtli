@@ -94,16 +94,20 @@ To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOri
 
 ```
 map (PLZ panel / MRH stop) ── "Erinnerung per E-Mail" form ── POST /api/subscribe
-   → subscriber (pending) + confirmation email ── /abo/bestaetigen (button) → active + welcome email
+   → subscriber (pending) + subscription row (pending types) + confirmation email
+   ── /abo/bestaetigen (button) → active + welcome email
    → Vercel Cron 16:00 UTC daily ── /api/cron/emails ── reminders for tomorrow; Sundays also the weekly overview
    → every email: footer link /abo/abmelden + one-click List-Unsubscribe header
 ```
 
-- **Double opt-in:** nothing but the confirmation email is sent before the button on `/abo/bestaetigen` is pressed. Changes by an active subscriber are held in `pending_prefs` until confirmed. The API answers the same for known and unknown addresses.
+- **Several subscriptions per address:** `subscriber` = one row per email with account settings (language, evening reminder, weekly overview); `subscription` = one row per postcode or station followed, each with its own collection types. Signing up again for a new place **adds** a row; signing up again for the same place **changes that row's types**; the others stay. Reminders and the Sunday overview cover everything followed. Reminder/overview once on stay on (switching off comes with the self-service page).
+- **Double opt-in:** nothing but the confirmation email is sent before the button on `/abo/bestaetigen` is pressed. Requested types wait in `subscription.pending_topics` (settings in `subscriber.pending_prefs`) until confirmed; the confirmation shows the whole subscription with new/changed parts marked. The API answers the same for known and unknown addresses.
+- **Every email says why it was sent:** reminders and overviews end with "Dein Abo", the full subscription (`lib/email/summary.ts`).
+- **Admin lookup by email:** `pnpm subscriber anna@example.ch` (add `--json`; against Neon: `DATABASE_URL=<url> pnpm subscriber …`) or `curl -H "Authorization: Bearer $ADMIN_SECRET" "https://…/api/internal/subscriber?email=anna@example.ch&format=text"`. Shows status, settings, every subscription (active/pending), the next 14 days of dates they'll get, attribution and the email log. Read-only.
 - **Exactly once:** each reminder/digest is claimed in `email_log` (unique subscriber + kind + date) before sending, so re-runs never send twice. Failed sends stay `failed` (see the run summary).
 - **Templates** (React Email, DE + EN): `apps/web/emails/` (confirm, welcome, reminder, weekly overview); all wording in `lib/email/copy.ts`. Preview while editing: `pnpm --filter web email:dev` → http://localhost:3001.
 - **Locally without Resend:** leave `RESEND_API_KEY` unset; emails are printed to the `pnpm dev` log with their links (click the confirm link from there). Run the cron by hand: `curl -H "Authorization: Bearer $CRON_SECRET" "localhost:3000/api/cron/emails?dryRun=1"` (`&forceDigest=1` for the Sunday overview).
-- **Going live:** verify the sending domain in Resend (SPF, DKIM, DMARC), set `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET` in Vercel, run `pnpm db:migrate` (migration `0001_email_subscriptions`). Review `/datenschutz` (draft) and the collection hints in `lib/email/copy.ts` before launch.
+- **Going live:** verify the sending domain in Resend (SPF, DKIM, DMARC), set `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET` in Vercel, `ADMIN_SECRET` (for the admin lookup), run `pnpm db:migrate` (migrations `0001_email_subscriptions`, `0002_subscriptions_per_target`). Review `/datenschutz` (draft) and the collection hints in `lib/email/copy.ts` before launch.
 
 ## How the map is built
 

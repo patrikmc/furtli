@@ -2,6 +2,7 @@ import { Section, Text } from "@react-email/components";
 import { TYPE_HINTS, TYPE_LABELS, formatShortDate, type Lang } from "../../lib/email/copy";
 import type { EmailItem, SubscriptionSummary } from "../../lib/email/types";
 import { COPY } from "../../lib/email/copy";
+import { summaryLines } from "../../lib/email/summary";
 import { C } from "./Layout";
 
 const DOT: Record<string, string> = {
@@ -36,20 +37,28 @@ export function ItemCard({ item, lang, showDate = false, hint = true }: { item: 
   );
 }
 
-/** Bullet list of what the subscriber chose. */
+/** Bullet list of the whole subscription. */
 export function Summary({ summary, lang }: { summary: SubscriptionSummary; lang: Lang }) {
-  const t = COPY[lang];
-  const lines = [
-    summary.plz ? t.summaryPlz(summary.plz) : null,
-    summary.stationName ? t.summaryStation(summary.stationName) : null,
-    summary.topics.map((x) => TYPE_LABELS[lang][x]).join(", "),
-    summary.reminders ? t.summaryReminders : null,
-    summary.digest ? t.summaryDigest : null,
-  ].filter(Boolean) as string[];
   return (
     <Section style={{ backgroundColor: C.mint, borderRadius: 12, padding: "10px 14px", margin: "0 0 16px" }}>
-      {lines.map((l) => (
+      {summaryLines(summary, lang).map((l) => (
         <Text key={l} style={{ fontSize: 15, lineHeight: "22px", margin: 0, color: C.ink }}>
+          • {l}
+        </Text>
+      ))}
+    </Section>
+  );
+}
+
+/** Bottom of reminders and weekly overviews: why this email arrived. */
+export function WhyYouGetThis({ summary, lang }: { summary: SubscriptionSummary; lang: Lang }) {
+  const t = COPY[lang];
+  return (
+    <Section style={{ borderTop: "1px solid #DDE2DA", margin: "12px 0 0", padding: "12px 0 0" }}>
+      <Text style={{ fontSize: 14, fontWeight: 700, margin: "0 0 2px", color: C.ink }}>{t.whyHeading}</Text>
+      <Text style={{ fontSize: 13, lineHeight: "19px", margin: "0 0 8px", color: C.muted }}>{t.whyIntro}</Text>
+      {summaryLines(summary, lang).map((l) => (
+        <Text key={l} style={{ fontSize: 13, lineHeight: "19px", margin: 0, color: C.ink }}>
           • {l}
         </Text>
       ))}

@@ -20,7 +20,8 @@
     "db:studio": "pnpm --filter db studio",
     "db:reset": "pnpm --filter db reset",
     "ingest": "pnpm --filter ingest ingest",
-    "ingest:dry": "pnpm --filter ingest ingest --dry-run"
+    "ingest:dry": "pnpm --filter ingest ingest --dry-run",
+    "subscriber": "pnpm --filter web subscriber"
   },
   "dependencies": {
     "@neon/config": "^1.7.3",

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getDb, hasDatabase } from "db";
 import { AboShell, primaryButton, secondaryButton } from "@/components/abo/AboShell";
-import { TYPE_LABELS } from "@/lib/email/copy";
+import { summaryLines } from "@/lib/email/summary";
 import { confirmPreview } from "@/lib/subscriptions/service";
 
 export const metadata: Metadata = { title: "Anmeldung bestätigen", robots: { index: false, follow: false } };
@@ -28,17 +28,12 @@ export default async function ConfirmPage({ searchParams }: PageProps<"/abo/best
     );
   }
 
-  const s = preview.summary;
-  const lines = [
-    s.plz ? `Postleitzahl ${s.plz}` : null,
-    s.stationName ? `Standort: ${s.stationName}` : null,
-    s.topics.map((t) => TYPE_LABELS.de[t]).join(", "),
-    s.reminders ? "E-Mail am Vorabend" : null,
-    s.digest ? "Wochenübersicht am Sonntagabend" : null,
-  ].filter(Boolean);
+  // The whole subscription as it will be after confirming; new/changed parts are marked.
+  const lines = summaryLines(preview.summary, "de");
 
   return (
-    <AboShell title={preview.isUpdate ? "Neue Einstellungen bestätigen" : "Erinnerungen bestätigen"}>
+    <AboShell title={preview.isUpdate ? "Ergänzung bestätigen" : "Erinnerungen bestätigen"}>
+      {preview.isUpdate && <p className="text-lg text-ink/75">So sieht dein Abo nach der Bestätigung aus:</p>}
       <ul className="space-y-1 rounded-2xl bg-mint px-4 py-3 text-ink">
         {lines.map((l) => (
           <li key={l}>• {l}</li>

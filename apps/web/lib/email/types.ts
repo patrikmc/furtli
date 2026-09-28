@@ -12,11 +12,18 @@ export interface EmailItem {
   time?: string | null;
 }
 
-/** What the subscriber chose, for the summary in confirm/welcome emails. */
-export interface SubscriptionSummary {
+/** One thing a subscriber follows: a postcode or a station, with its collection types. */
+export interface SummaryTarget {
   plz: string | null;
   stationName: string | null;
   topics: EventTypeValue[];
+  /** In confirm emails/pages: what this confirmation adds or changes. */
+  change?: "new" | "changed" | null;
+}
+
+/** The subscriber's whole subscription, shown in every email ("why you get this"). */
+export interface SubscriptionSummary {
+  targets: SummaryTarget[];
   reminders: boolean;
   digest: boolean;
 }

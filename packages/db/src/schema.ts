@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   date,
   doublePrecision,
   index,
@@ -27,8 +28,13 @@ import { sql } from "drizzle-orm";
  *
  * Email subscriptions (apps/web/lib/subscriptions):
  *
- *   subscriber        one row per email address: what to be reminded of,
- *                     consent (double opt-in) and first-touch attribution
+ *   subscriber        one row per email address: account-wide settings
+ *                     (language, evening reminders, weekly overview), consent
+ *                     (double opt-in) and first-touch attribution
+ *   subscription      what an address follows: one row per postcode or
+ *                     station, each with its own collection types. Signing up
+ *                     again adds a row (or changes that row's types); it
+ *                     never replaces the others.
  *   email_log         every email we sent or tried to send; the unique key
  *                     makes each reminder/digest go out at most once
  */
@@ -131,20 +137,15 @@ export const subscriber = pgTable(
     status: subscriberStatus("status").notNull().default("pending"),
     /** "de" | "en" – language of the emails. */
     lang: text("lang").notNull().default("de"),
-    /** Postcode for kerbside dates and the MRH/hazmat stops the city assigns to it. */
-    plz: text("plz"),
-    /** A single MRH/hazmat stop to follow (set when subscribing from a station). */
-    stationId: text("station_id").references(() => station.id),
-    /** Which collections to be reminded of. */
-    topics: eventType("topics")
-      .array()
-      .notNull()
-      .default(sql`'{}'::event_type[]`),
-    /** Email the evening before a collection. */
+    /** Email the evening before a collection (all subscriptions). */
     reminders: boolean("reminders").notNull().default(true),
-    /** Weekly overview on Sunday evening. */
+    /** Weekly overview on Sunday evening, covering all subscriptions. */
     digest: boolean("digest").notNull().default(false),
-    /** Changes requested by an already active subscriber; applied on confirmation. */
+    /**
+     * Account settings requested by an already active subscriber
+     * ({ lang, reminders, digest }); applied on confirmation. What they follow
+     * waits in subscription.pending_topics.
+     */
     pendingPrefs: jsonb("pending_prefs"),
     /** One-time token in the confirmation link; cleared once used. */
     confirmToken: text("confirm_token").unique("subscriber_confirm_token_key"),
@@ -171,7 +172,39 @@ export const subscriber = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("subscriber_status_idx").on(t.status), index("subscriber_plz_idx").on(t.plz)],
+  (t) => [index("subscriber_status_idx").on(t.status)],
+);
+
+export const subscription = pgTable(
+  "subscription",
+  {
+    id: serial("id").primaryKey(),
+    subscriberId: integer("subscriber_id")
+      .notNull()
+      .references(() => subscriber.id, { onDelete: "cascade" }),
+    /** Postcode: kerbside dates and the MRH/hazmat stops the city assigns to it. */
+    plz: text("plz"),
+    /** A single MRH/hazmat stop (when subscribing from a station). */
+    stationId: text("station_id").references(() => station.id),
+    /** Confirmed collection types. Empty = not (yet) active. */
+    topics: eventType("topics")
+      .array()
+      .notNull()
+      .default(sql`'{}'::event_type[]`),
+    /** Requested types waiting for the confirmation click; replace `topics` on confirm. */
+    pendingTopics: eventType("pending_topics").array(),
+    /** Where in the app this was requested: "nearby" | "station" | … */
+    source: text("source"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("subscription_target_key").on(t.subscriberId, t.plz, t.stationId).nullsNotDistinct(),
+    check("subscription_has_target", sql`${t.plz} is not null or ${t.stationId} is not null`),
+    index("subscription_plz_idx").on(t.plz),
+    index("subscription_station_idx").on(t.stationId),
+  ],
 );
 
 export const emailLog = pgTable(
@@ -202,4 +235,5 @@ export type StationKindValue = (typeof stationKind.enumValues)[number];
 export type EventTypeValue = (typeof eventType.enumValues)[number];
 export type Subscriber = typeof subscriber.$inferSelect;
 export type NewSubscriber = typeof subscriber.$inferInsert;
+export type Subscription = typeof subscription.$inferSelect;
 export type EmailLog = typeof emailLog.$inferSelect;

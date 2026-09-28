@@ -6,11 +6,17 @@ import { STATION_TOPICS, type Topic } from "./input";
  * the cron route (lib/subscriptions/scheduled.ts) feeds it rows and a date.
  */
 
-export interface PlanSubscriber {
-  id: number;
+/** One confirmed subscription row: a postcode or a station, with its types. */
+export interface PlanTarget {
   plz: string | null;
   stationId: string | null;
   topics: Topic[];
+}
+
+/** A subscriber with everything they follow. */
+export interface PlanSubscriber {
+  id: number;
+  targets: PlanTarget[];
 }
 
 /** A collection_event row joined with its station (if any). */
@@ -19,12 +25,12 @@ export interface PlanEvent extends EmailItem {
 }
 
 /**
- * Does this event concern the subscriber?
+ * Does this event concern this subscription target?
  * - Kerbside types (paper, cardboard, organic, waste): by postcode.
  * - MRH / hazmat: the chosen station if there is one, otherwise every stop
  *   the city assigns to the subscriber's postcode.
  */
-export function matches(sub: PlanSubscriber, e: PlanEvent): boolean {
+export function matchesTarget(sub: PlanTarget, e: PlanEvent): boolean {
   if (!sub.topics.includes(e.type)) return false;
   if (STATION_TOPICS.includes(e.type)) {
     if (sub.stationId) return e.stationId === sub.stationId;
@@ -33,9 +39,18 @@ export function matches(sub: PlanSubscriber, e: PlanEvent): boolean {
   return sub.plz !== null && e.plz === sub.plz;
 }
 
+/** Does this event concern any of the subscriber's targets? */
+export function matches(sub: PlanSubscriber, e: PlanEvent): boolean {
+  return sub.targets.some((t) => matchesTarget(t, e));
+}
+
 const ORDER: Record<string, number> = { waste: 0, paper: 1, cardboard: 2, organic: 3, mrh: 4, hazmat: 5 };
 
-/** The subscriber's items, one per (type, date, station), sorted by date then type. */
+/**
+ * The subscriber's items across all targets, one per (type, date, station),
+ * sorted by date then type. A date followed twice (e.g. via 8004 and via the
+ * Stauffacher stop) is listed once.
+ */
 export function itemsFor(sub: PlanSubscriber, events: PlanEvent[]): EmailItem[] {
   const seen = new Set<string>();
   const out: EmailItem[] = [];

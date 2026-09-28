@@ -32,5 +32,13 @@ ConfirmSubscription.PreviewProps = {
   lang: "de",
   confirmUrl: "https://furtli.ch/abo/bestaetigen?t=preview",
   mapUrl: "https://furtli.ch/?plz=8004",
-  summary: { plz: "8004", stationName: null, topics: ["cardboard", "paper", "mrh"], reminders: true, digest: true },
+  summary: {
+    targets: [
+      { plz: "8004", stationName: null, topics: ["cardboard", "paper"] },
+      { plz: null, stationName: "Stauffacher", topics: ["mrh"], change: "new" },
+    ],
+    reminders: true,
+    digest: true,
+  },
+  isUpdate: true,
 } satisfies ConfirmSubscriptionProps;

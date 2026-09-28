@@ -18,11 +18,11 @@ export const ACCESS_PAGE = "/zugang";
 
 /**
  * Reachable without the password. Each is protected by something else or is
- * harmless: the gate itself, cron/ingest (CRON_SECRET), and the email flows
+ * harmless: the gate itself, cron/ingest (CRON_SECRET), admin lookups (ADMIN_SECRET), and the email flows
  * (per-subscriber tokens; mail providers POST one-click unsubscribes without
  * cookies, RFC 8058).
  */
-const OPEN_PATHS = [ACCESS_PAGE, "/api/zugang", "/api/cron", "/api/ingest", "/api/email", "/abo"];
+const OPEN_PATHS = [ACCESS_PAGE, "/api/zugang", "/api/cron", "/api/ingest", "/api/internal", "/api/email", "/abo"];
 
 export function isOpenPath(pathname: string): boolean {
   return OPEN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

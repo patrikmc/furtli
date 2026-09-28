@@ -8,7 +8,7 @@ import { renderConfirm, renderDigest, renderReminder, renderWelcome } from "./re
 
 describe("email templates", () => {
   it("confirmation: subject, button link, no unsubscribe footer yet", async () => {
-    const e = await renderConfirm(ConfirmSubscription.PreviewProps);
+    const e = await renderConfirm({ ...ConfirmSubscription.PreviewProps, isUpdate: false });
     expect(e.subject).toBe("Bitte bestätige deine Erinnerungen");
     expect(e.html).toContain("https://furtli.ch/abo/bestaetigen?t=preview");
     expect(e.html).not.toContain("Abmelden");
@@ -22,6 +22,24 @@ describe("email templates", () => {
     expect(e.html).toContain("/abholen?station=mrh-stauffacher");
     expect(e.html).toContain("/abo/abmelden?t=preview");
     expect(e.html).not.toMatch(/undefined|null/);
+  });
+
+  it("reminders and weekly overviews end with the whole subscription (why you get this)", async () => {
+    const r = await renderReminder(Reminder.PreviewProps);
+    const d = await renderDigest({ ...WeeklyDigest.PreviewProps, from: "2026-10-26", to: "2026-11-01" });
+    for (const e of [r, d]) {
+      expect(e.text).toContain("Dein Abo");
+      expect(e.text).toContain("Postleitzahl 8004: Karton, Papier, Mobiler Recyclinghof");
+      expect(e.text).toContain("Standort: Stauffacher: Mobiler Recyclinghof");
+      expect(e.text).toContain("Wochenübersicht am Sonntagabend");
+    }
+  });
+
+  it("confirming an addition shows the full subscription with the new part marked", async () => {
+    const e = await renderConfirm(ConfirmSubscription.PreviewProps);
+    expect(e.subject).toBe("Bitte bestätige deine neuen Einstellungen");
+    expect(e.text).toContain("Postleitzahl 8004: Karton, Papier");
+    expect(e.text).toContain("Standort: Stauffacher: Mobiler Recyclinghof (neu)");
   });
 
   it("English reminder", async () => {
