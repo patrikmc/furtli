@@ -38,7 +38,13 @@ describe("summarizeAttribution", () => {
     expect(r.unconfirmed48h).toBe(1);
   });
 
-  it("groups by channel and by post, best first", () => {
+  it("groups by channel group, by source and by post, best first", () => {
+    expect(r.byChannelGroup).toEqual([
+      { channel: "social", signedUp: 3, confirmed: 2 },
+      { channel: "community", signedUp: 1, confirmed: 1 },
+      { channel: "search", signedUp: 1, confirmed: 1 },
+      { channel: "direct", signedUp: 1, confirmed: 1 },
+    ]);
     expect(r.byChannel[0]).toEqual({ source: "instagram", medium: "social", signedUp: 3, confirmed: 2 });
     expect(r.byChannel.map((c) => c.source)).toEqual(expect.arrayContaining(["reddit", "ref:www.google.com", "direct"]));
     expect(r.byPost[0]).toEqual({ postId: "p07-reel-glas", source: "instagram", campaign: "w2-launch", signedUp: 3, confirmed: 2 });

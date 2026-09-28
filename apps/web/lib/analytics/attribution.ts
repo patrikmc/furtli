@@ -61,14 +61,20 @@ export function parseAttribution(href: string, referrer: string): Attribution {
   return out;
 }
 
-/** Call once per page load (components/analytics/AttributionCapture.tsx). Keeps the first touch. */
-export function captureAttribution(): void {
+/**
+ * Call once per page load (components/analytics/AttributionCapture.tsx). Keeps
+ * the first touch of this browser session. Returns it when it was captured
+ * just now (a new visit), null when the session already had one.
+ */
+export function captureAttribution(): Attribution | null {
   try {
-    if (window.sessionStorage.getItem(STORAGE_KEY)) return;
+    if (window.sessionStorage.getItem(STORAGE_KEY)) return null;
     const a = parseAttribution(window.location.href, document.referrer);
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(a));
+    return a;
   } catch {
     // Storage blocked (private mode, embedded view): attribution is best effort.
+    return null;
   }
 }
 
@@ -85,4 +91,65 @@ export function readAttribution(): Attribution {
   } catch {
     return {};
   }
+}
+
+/**
+ * Acquisition channel of a visit, from its UTM tags or, for untagged links,
+ * the referring site. Same groups as utm_medium in the campaign registry,
+ * plus search, direct and other (tagged, but with a medium we don't know).
+ */
+export type Channel = "email" | "social" | "community" | "search" | "print" | "paid" | "referral" | "direct" | "other";
+
+const MEDIUM_CHANNEL: Record<string, Channel> = {
+  email: "email",
+  social: "social",
+  community: "community",
+  print: "print",
+  paid: "paid",
+  referral: "referral",
+};
+/** Sources our own emails use (lib/email/links.ts). */
+const EMAIL_SOURCES = new Set(["reminder", "newsletter", "welcome"]);
+const WEBMAIL = /(^|\.)(mail\.google\.com|outlook\.live\.com|outlook\.office\.com|outlook\.office365\.com|mail\.yahoo\.com|mail\.proton\.me|bluewin\.ch|gmx\.net|gmx\.ch|web\.de)$/;
+const SEARCH = /(^|\.)(google|bing|duckduckgo|ecosia|yahoo|qwant|startpage|yandex|baidu)\.[a-z.]+$|(^|\.)search\.brave\.com$/;
+const SOCIAL = /(^|\.)(instagram\.com|facebook\.com|fb\.com|fb\.me|tiktok\.com|t\.co|x\.com|twitter\.com|linkedin\.com|lnkd\.in|threads\.net|bsky\.app|youtube\.com|whatsapp\.com|wa\.me)$/;
+const COMMUNITY = /(^|\.)(reddit\.com|nextdoor\.(com|ch))$/;
+
+export function channelOf(a: { utmSource?: string | null; utmMedium?: string | null; referrer?: string | null }): Channel {
+  const medium = a.utmMedium?.toLowerCase();
+  if (medium && MEDIUM_CHANNEL[medium]) return MEDIUM_CHANNEL[medium];
+  const source = a.utmSource?.toLowerCase();
+  if (source) {
+    if (EMAIL_SOURCES.has(source)) return "email";
+    if (source.startsWith("qr-")) return "print";
+    return "other";
+  }
+  const host = a.referrer?.toLowerCase();
+  if (!host) return "direct";
+  if (WEBMAIL.test(host)) return "email";
+  if (SEARCH.test(host)) return "search";
+  if (SOCIAL.test(host)) return "social";
+  if (COMMUNITY.test(host)) return "community";
+  return "referral";
+}
+
+/** Short acquisition fields for Umami events: channel, origin (utm_source or referring host) and post ID. */
+export function acquisitionProps(a: Attribution): Record<string, string> {
+  return {
+    channel: channelOf(a),
+    origin: a.utmSource ?? a.referrer ?? "direct",
+    ...(a.utmContent ? { post: a.utmContent } : {}),
+  };
+}
+
+/** Everything about a new visit's origin, for the "visit_source" event. */
+export function visitSourceProps(a: Attribution): Record<string, string> {
+  return {
+    ...acquisitionProps(a),
+    ...(a.utmMedium ? { medium: a.utmMedium } : {}),
+    ...(a.utmCampaign ? { campaign: a.utmCampaign } : {}),
+    ...(a.utmTerm ? { variant: a.utmTerm } : {}),
+    ...(a.referrer ? { referrer: a.referrer } : {}),
+    landing: a.landingPath ?? "/",
+  };
 }

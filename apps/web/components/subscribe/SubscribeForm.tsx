@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId, useState, type FormEvent } from "react";
-import { readAttribution } from "@/lib/analytics/attribution";
+import { channelOf, readAttribution } from "@/lib/analytics/attribution";
 import { useLang } from "@/components/i18n/LangProvider";
 import { track } from "@/lib/analytics/umami";
 import { TYPE_LABELS } from "@/lib/email/copy";
@@ -79,8 +79,10 @@ export function SubscribeForm({
         source,
         topics: topics.join(","),
         digest,
+        channel: channelOf(attribution),
         utm_source: attribution.utmSource ?? (attribution.referrer ? "referral" : "direct"),
         ...(attribution.utmCampaign ? { utm_campaign: attribution.utmCampaign } : {}),
+        ...(attribution.utmContent ? { post: attribution.utmContent } : {}),
       });
     } catch {
       setStatus("error");

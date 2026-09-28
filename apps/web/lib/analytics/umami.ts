@@ -1,3 +1,5 @@
+import { acquisitionProps, readAttribution } from "./attribution";
+
 /**
  * Umami (cookieless web analytics). The tracker script is only loaded when
  * NEXT_PUBLIC_UMAMI_WEBSITE_ID is set (see components/analytics/Analytics.tsx),
@@ -66,6 +68,23 @@ export function track(event: string, data?: UmamiData): void {
   }
 }
 
+/**
+ * Like track(), but waits (up to `timeoutMs`) for the tracker to load. For
+ * events fired right at page load, before Umami's script has arrived.
+ */
+export function trackWhenReady(event: string, data?: UmamiData, timeoutMs = 10_000): void {
+  const start = Date.now();
+  const tick = () => {
+    if ((window as unknown as { umami?: UmamiTracker }).umami) return track(event, data);
+    if (Date.now() - start < timeoutMs) window.setTimeout(tick, 250);
+  };
+  try {
+    tick();
+  } catch {
+    // Analytics must never break the app.
+  }
+}
+
 /** What counts as "using the map" for the activation metric. */
 export type FirstAction = "search_map" | "search_plz" | "search_kreis" | "search_gps" | "station" | "filter";
 
@@ -94,7 +113,13 @@ export function trackFirstAction(action: FirstAction, data: UmamiData = {}): voi
   } catch {
     // performance is always there in browsers; keep 0 otherwise.
   }
-  track("first_action", { action, seconds, within: secondsBucket(seconds), ...data });
+  let acquisition: UmamiData = {};
+  try {
+    acquisition = acquisitionProps(readAttribution());
+  } catch {
+    // Outside a browser (tests): no attribution.
+  }
+  track("first_action", { action, seconds, within: secondsBucket(seconds), ...acquisition, ...data });
 }
 
 /** Tests only: allow first_action again. */

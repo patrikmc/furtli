@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAttribution } from "./attribution";
+import { acquisitionProps, channelOf, parseAttribution, visitSourceProps } from "./attribution";
 import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled } from "./umami";
 
 type Payload = { url?: string; referrer?: string; website?: string };
@@ -97,5 +97,61 @@ describe("umamiEnabled", () => {
   it("is off without a website id (tests, CI)", () => {
     expect(umamiEnabled({ APP_ENV: "production" })).toBe(false);
     expect(umamiEnabled({})).toBe(false);
+  });
+});
+
+describe("channelOf", () => {
+  it("uses utm_medium when it is one of ours", () => {
+    expect(channelOf({ utmSource: "reddit", utmMedium: "community" })).toBe("community");
+    expect(channelOf({ utmSource: "qr-mrh-stauffacher", utmMedium: "print" })).toBe("print");
+    expect(channelOf({ utmSource: "meta-ads", utmMedium: "paid" })).toBe("paid");
+  });
+
+  it("recognises our own emails and QR codes without a known medium", () => {
+    expect(channelOf({ utmSource: "reminder", utmMedium: "email" })).toBe("email");
+    expect(channelOf({ utmSource: "newsletter" })).toBe("email");
+    expect(channelOf({ utmSource: "qr-repaircafe" })).toBe("print");
+    expect(channelOf({ utmSource: "something", utmMedium: "banner" })).toBe("other");
+  });
+
+  it("classifies untagged visits by the referring site", () => {
+    expect(channelOf({ referrer: "www.google.ch" })).toBe("search");
+    expect(channelOf({ referrer: "duckduckgo.com" })).toBe("search");
+    expect(channelOf({ referrer: "search.brave.com" })).toBe("search");
+    expect(channelOf({ referrer: "l.instagram.com" })).toBe("social");
+    expect(channelOf({ referrer: "lm.facebook.com" })).toBe("social");
+    expect(channelOf({ referrer: "t.co" })).toBe("social");
+    expect(channelOf({ referrer: "www.reddit.com" })).toBe("community");
+    expect(channelOf({ referrer: "mail.google.com" })).toBe("email");
+    expect(channelOf({ referrer: "outlook.live.com" })).toBe("email");
+    expect(channelOf({ referrer: "www.tsri.ch" })).toBe("referral");
+    expect(channelOf({})).toBe("direct");
+  });
+});
+
+describe("acquisition event fields", () => {
+  const a = {
+    utmSource: "reddit",
+    utmMedium: "community",
+    utmCampaign: "w2-launch",
+    utmContent: "p08-reddit-launch",
+    landingPath: "/",
+  };
+  it("gives a short version for events and a full one for visit_source", () => {
+    expect(acquisitionProps(a)).toEqual({ channel: "community", origin: "reddit", post: "p08-reddit-launch" });
+    expect(visitSourceProps(a)).toEqual({
+      channel: "community",
+      origin: "reddit",
+      post: "p08-reddit-launch",
+      medium: "community",
+      campaign: "w2-launch",
+      landing: "/",
+    });
+    expect(visitSourceProps({ referrer: "www.google.ch", landingPath: "/abholen" })).toEqual({
+      channel: "search",
+      origin: "www.google.ch",
+      referrer: "www.google.ch",
+      landing: "/abholen",
+    });
   });
 });

@@ -97,7 +97,7 @@ export async function runScheduledEmails(
           date: tomorrow,
           items,
           summary: summaryOf(sub.rows, settingsOf(sub.row)),
-          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "reminder", undefined, settingsOf(sub.row).lang),
+          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "reminder", "map", settingsOf(sub.row).lang),
           pickupUrl: pickupUrl(items, "reminder", settingsOf(sub.row).lang),
           unsubscribeUrl: unsubscribePageUrl(sub.row.unsubscribeToken, settingsOf(sub.row).lang),
         }),
@@ -113,7 +113,7 @@ export async function runScheduledEmails(
           to: digestTo,
           days,
           summary: summaryOf(sub.rows, settingsOf(sub.row)),
-          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "digest", undefined, settingsOf(sub.row).lang),
+          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "digest", "map", settingsOf(sub.row).lang),
           pickupUrl: pickupUrl(
             days.flatMap((d) => d.items),
             "digest",

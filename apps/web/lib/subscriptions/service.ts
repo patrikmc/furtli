@@ -146,7 +146,7 @@ export async function subscribe(deps: Deps, input: SubscribeInput): Promise<Subs
   const email = await renderConfirm({
     lang: settings.lang,
     confirmUrl: confirmPageUrl(row.confirmToken!, settings.lang),
-    mapUrl: trackedUrl(mapPath(target), "welcome", undefined, settings.lang),
+    mapUrl: trackedUrl(mapPath(target), "welcome", "map", settings.lang),
     summary: summaryOf(rows, settings, "preview"),
     isUpdate,
   });
@@ -232,7 +232,7 @@ async function sendWelcome(deps: Deps, s: Subscriber, now: Date) {
     lang: settings.lang,
     summary: summaryOf(rows, settings),
     next,
-    mapUrl: trackedUrl(mapPath(primaryTarget(rows)), "welcome", undefined, settings.lang),
+    mapUrl: trackedUrl(mapPath(primaryTarget(rows)), "welcome", "map", settings.lang),
     unsubscribeUrl: unsubscribePageUrl(s.unsubscribeToken, settings.lang),
   });
   const [claimed] = await db

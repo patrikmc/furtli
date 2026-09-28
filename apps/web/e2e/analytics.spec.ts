@@ -63,3 +63,29 @@ test("search_no_result fires once when a search shows no station", async ({ page
   expect(none).toHaveLength(1);
   expect(none[0][1]).toMatchObject({ by: "map", reason: "filtered", mode: "nearby" });
 });
+
+test("visit_source records where a visit came from, once per session", async ({ page }) => {
+  await recordEvents(page);
+  await page.goto("/?utm_source=reddit&utm_medium=community&utm_campaign=w2-launch&utm_content=p08-reddit-launch");
+  await expect(page.getByTestId("start-card")).toBeVisible();
+  await expect.poll(async () => named(await events(page), "visit_source").length).toBe(1);
+
+  // A reload is the same browser session (sessionStorage survives): no second
+  // visit_source. The recorder starts empty again on every page load.
+  await page.reload();
+  await expect(page.getByTestId("start-card")).toBeVisible();
+  expect(named(await events(page), "visit_source")).toHaveLength(0);
+});
+
+test("visit_source and first_action carry the channel and post", async ({ page }) => {
+  await recordEvents(page);
+  await page.goto("/?utm_source=reddit&utm_medium=community&utm_campaign=w2-launch&utm_content=p08-reddit-launch");
+  await tapEmptySpot(page);
+  await expect(page.getByRole("dialog", { name: "Gewählter Punkt" })).toBeVisible();
+
+  const sent = await events(page);
+  const visit = named(sent, "visit_source");
+  expect(visit).toHaveLength(1);
+  expect(visit[0][1]).toMatchObject({ channel: "community", origin: "reddit", post: "p08-reddit-launch", campaign: "w2-launch", landing: "/" });
+  expect(named(sent, "first_action")[0][1]).toMatchObject({ channel: "community", origin: "reddit", post: "p08-reddit-launch" });
+});

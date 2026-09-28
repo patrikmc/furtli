@@ -1,4 +1,5 @@
 import { subscriber, type Database } from "db";
+import { channelOf, type Channel } from "./attribution";
 
 /**
  * Weekly attribution: which channels and posts brought sign-ups and confirmed
@@ -34,6 +35,8 @@ export interface AttributionReport {
   activeNow: number;
   /** Pending for more than 48 hours (confirmation email lost, in spam, or ignored). */
   unconfirmed48h: number;
+  /** email, social, community, search, print, paid, referral, direct, other. */
+  byChannelGroup: ({ channel: Channel } & Bucket)[];
   byChannel: ({ source: string; medium: string } & Bucket)[];
   byPost: ({ postId: string; source: string; campaign: string } & Bucket)[];
 }
@@ -57,10 +60,12 @@ export function summarizeAttribution(rows: AttributionRow[], now: Date, days = 7
   const since = new Date(now.getTime() - days * 86_400_000);
   const stale = new Date(now.getTime() - 48 * 3_600_000);
   const inPeriod = rows.filter((r) => r.createdAt >= since && r.createdAt <= now);
+  const groups = new Map<string, Bucket>();
   const channels = new Map<string, Bucket>();
   const posts = new Map<string, Bucket>();
   for (const r of inPeriod) {
     const confirmed = r.confirmedAt !== null;
+    add(groups, channelOf(r), confirmed);
     add(channels, JSON.stringify([sourceLabel(r), r.utmMedium ?? "-"]), confirmed);
     add(posts, JSON.stringify([r.utmContent ?? "(none)", sourceLabel(r), r.utmCampaign ?? "-"]), confirmed);
   }
@@ -75,6 +80,7 @@ export function summarizeAttribution(rows: AttributionRow[], now: Date, days = 7
     },
     activeNow: rows.filter((r) => r.status === "active").length,
     unconfirmed48h: rows.filter((r) => r.status === "pending" && r.createdAt < stale).length,
+    byChannelGroup: [...groups].map(([channel, b]) => ({ channel: channel as Channel, ...b })).sort(byConfirmedThenSignups),
     byChannel: [...channels]
       .map(([k, b]) => {
         const [source, medium] = JSON.parse(k) as [string, string];
@@ -121,7 +127,12 @@ export function formatAttribution(r: AttributionReport): string {
     `  signed up ${r.period.signedUp} · confirmed ${r.period.confirmed} · unsubscribed ${r.period.unsubscribed}`,
     `  active subscribers now ${r.activeNow} · unconfirmed after 48 h ${r.unconfirmed48h}`,
     "",
-    "By channel",
+    "By channel group",
+    ...(r.byChannelGroup.length
+      ? table(["channel", "signed up", "confirmed"], r.byChannelGroup.map((c) => [c.channel, c.signedUp, c.confirmed])).map((l) => `  ${l}`)
+      : ["  (no sign-ups)"]),
+    "",
+    "By source",
     ...(r.byChannel.length
       ? table(["source", "medium", "signed up", "confirmed"], r.byChannel.map((c) => [c.source, c.medium, c.signedUp, c.confirmed])).map((l) => `  ${l}`)
       : ["  (no sign-ups)"]),
