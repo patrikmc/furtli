@@ -15,6 +15,8 @@ import {
   resolveAnchor,
 } from "geo";
 
+import { LangToggle } from "@/components/i18n/LangToggle";
+import { useLang } from "@/components/i18n/LangProvider";
 import { track } from "@/lib/analytics/umami";
 import { type Radius, type SearchState, writeSearchParams } from "@/lib/geo/anchor";
 import { toPoints, todayZurich } from "@/lib/geo/group";
@@ -47,6 +49,7 @@ export default function MapShell({
   initialStationId,
   cityPlz,
 }: Props) {
+  const { t } = useLang();
   const mapRef = useRef<MapRef | null>(null);
   // Dev style switcher overrides the default base map locally.
   const [devBasemap, setDevBasemap] = useState<Basemap | null>(null);
@@ -197,14 +200,14 @@ export default function MapShell({
   const onLocate = useCallback(
     ({ lng, lat }: LocateResult) => {
       if (areas && kreisForPoint(lng, lat, areas.kreise) === null) {
-        setHint("Du bist ausserhalb der Stadt Zürich. Tippe auf die Karte, um einen Ort zu wählen.");
+        setHint(t.map.outsideCity);
         return;
       }
       setAnchor({ type: "point", lng, lat, source: "gps" });
       track("place_search", { by: "gps" });
       flyTo(lng, lat, 14.5);
     },
-    [areas, flyTo, setAnchor],
+    [areas, flyTo, setAnchor, t],
   );
 
   const selectStation = useCallback(
@@ -269,12 +272,13 @@ export default function MapShell({
             <span
               data-testid="sample-badge"
               className="rounded-full bg-sun px-2.5 py-0.5 text-xs font-bold text-ink"
-              title="Die angezeigten Stationen und Termine sind Platzhalter."
+              title={t.map.sampleTitle}
             >
-              Beispieldaten
+              {t.map.sampleBadge}
             </span>
           )}
           {process.env.NODE_ENV === "development" && <DevStylePicker active={active} onPick={setDevBasemap} />}
+          <LangToggle className="ml-auto" />
         </div>
         <TypeFilterChips active={kinds} onToggle={toggleKind} />
       </header>
@@ -310,10 +314,8 @@ export default function MapShell({
             data-testid="start-card"
             className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 rounded-3xl bg-paper px-4 py-3.5 shadow-[0_8px_30px_rgba(23,34,59,0.18)] md:inset-x-auto md:top-[7.5rem] md:bottom-auto md:left-4 md:w-[26rem]"
           >
-            <p className="font-display text-lg leading-tight font-bold text-ink">Was gibt&apos;s in deiner Nähe?</p>
-            <p className="mt-0.5 mb-2.5 text-sm text-ink/65">
-              Tippe auf die Karte (z.&nbsp;B. bei dir zuhause), nutze deinen Standort oder wähle PLZ oder Kreis.
-            </p>
+            <p className="font-display text-lg leading-tight font-bold text-ink">{t.map.startTitle}</p>
+            <p className="mt-0.5 mb-2.5 text-sm text-ink/65">{t.map.startText}</p>
             {picker}
           </div>
         )
@@ -322,7 +324,7 @@ export default function MapShell({
       {/* Loading skeleton / errors (the style is fetched client-side and can be slow) */}
       {!mapReady && !mapError && (
         <div className="absolute inset-0 z-0 grid place-items-center" aria-live="polite">
-          <p className="animate-pulse rounded-full bg-white/80 px-4 py-2 text-sm text-ink/70">Karte lädt …</p>
+          <p className="animate-pulse rounded-full bg-white/80 px-4 py-2 text-sm text-ink/70">{t.map.loading}</p>
         </div>
       )}
       {/* Individual tile errors are normal; only surface a failure to load the style itself. */}
@@ -331,7 +333,7 @@ export default function MapShell({
           role="alert"
           className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-xl bg-ink px-4 py-2 text-sm text-white"
         >
-          {dataError ? "Stationen konnten nicht geladen werden." : "Die Karte konnte nicht vollständig geladen werden."}
+          {dataError ? t.map.stationsError : t.map.mapError}
         </p>
       )}
     </div>
@@ -340,12 +342,13 @@ export default function MapShell({
 
 /** Dev-only: switch between the swisstopo base maps in place. */
 function DevStylePicker({ active, onPick }: { active: Basemap; onPick: (b: Basemap) => void }) {
+  const { t } = useLang();
   const options = allBasemaps();
   const list = options.some((o) => o.id === active.id) ? options : [active, ...options];
   return (
     <div className="pointer-events-auto ml-auto flex items-center gap-2">
       <select
-        aria-label="Kartenstil (nur Entwicklung)"
+        aria-label={t.map.devStyle}
         value={active.id}
         onChange={(e) => {
           const next = list.find((o) => o.id === e.target.value);

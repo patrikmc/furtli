@@ -2,24 +2,15 @@
 
 import Link from "next/link";
 import { formatDistance } from "geo";
-import { DAY_LABELS, KINDS, MATERIAL_LABELS, timeWindow } from "@/lib/geo/kinds";
+import { useLang } from "@/components/i18n/LangProvider";
+import { dayLabel, kindLabel, materialLabel, timeWindow } from "@/lib/geo/kinds";
+import { formatDate } from "@/lib/i18n/format";
 import type { StationFeature } from "@/lib/geo/types";
 import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
 import { KindDot } from "./KindDot";
 import { Sheet } from "./Sheet";
 
-const dateFmt = new Intl.DateTimeFormat("de-CH", {
-  weekday: "short",
-  day: "numeric",
-  month: "long",
-  timeZone: "Europe/Zurich",
-});
-
-export function formatDate(iso: string): string {
-  // Noon UTC is the same calendar day in Zürich all year round.
-  const [y, m, d] = iso.split("-").map(Number);
-  return dateFmt.format(new Date(Date.UTC(y, m - 1, d, 12)));
-}
+export { formatDate };
 
 /** Station details. Opened from the map or from the nearby list (then with a back button). */
 export function StationSheet({
@@ -37,8 +28,8 @@ export function StationSheet({
   /** Postcode of the search location, to show "official stop for 8004". */
   anchorPlz?: string | null;
 }) {
+  const { lang, t } = useLang();
   const p = station.properties;
-  const kind = KINDS[p.kind];
   const official = anchorPlz && p.servesPlz?.includes(anchorPlz);
   const weekly = p.hours && !p.hours.note ? Object.entries(p.hours) : [];
 
@@ -53,35 +44,35 @@ export function StationSheet({
       <div className="mt-3 space-y-4">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink/70">
           <KindDot kind={p.kind} />
-          <span>{kind.label}</span>
+          <span>{kindLabel(p.kind, lang)}</span>
           <span aria-hidden>·</span>
-          <span>{p.kreis ? `Kreis ${p.kreis}` : "ausserhalb"} · {p.plz}</span>
+          <span>{p.kreis ? t.anchor.kreis(p.kreis) : t.station.outside} · {p.plz}</span>
           {distance !== undefined && (
             <>
               <span aria-hidden>·</span>
-              <span className="font-bold text-ink">{formatDistance(distance)} entfernt</span>
+              <span className="font-bold text-ink">{t.station.away(formatDistance(distance, lang))}</span>
             </>
           )}
         </p>
 
         {official && (
           <p className="inline-block rounded-full bg-mint px-3 py-1 text-xs font-bold text-moss">
-            Offizieller Standort für PLZ {anchorPlz}
+            {t.station.official(anchorPlz)}
           </p>
         )}
 
         {p.nextDates?.length ? (
           <div>
-            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">Nächste Termine</h3>
+            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">{t.station.nextDates}</h3>
             <ul className="mt-2 space-y-1.5">
               {p.nextDates.map((d, i) => {
-                const time = timeWindow(p.kind, p.hours, d);
+                const time = timeWindow(p.kind, p.hours, d, lang);
                 return (
                   <li
                     key={d}
                     className={`flex justify-between rounded-xl px-3 py-2 ${i === 0 ? "bg-mint font-bold text-ink" : "bg-white text-ink/80"}`}
                   >
-                    <span>{formatDate(d)}</span>
+                    <span>{formatDate(d, lang)}</span>
                     {time && <span className="font-normal text-ink/60">{time}</span>}
                   </li>
                 );
@@ -89,16 +80,16 @@ export function StationSheet({
             </ul>
           </div>
         ) : p.kind === "mrh" || p.kind === "hazmat" ? (
-          <p className="text-sm text-ink/60">Zurzeit keine Termine publiziert.</p>
+          <p className="text-sm text-ink/60">{t.station.noDates}</p>
         ) : null}
 
         {weekly.length > 0 && (
           <div>
-            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">Öffnungszeiten</h3>
+            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">{t.station.hours}</h3>
             <ul className="mt-2 grid grid-cols-2 gap-1 text-sm text-ink/80">
-              {weekly.map(([d, t]) => (
+              {weekly.map(([d, time]) => (
                 <li key={d}>
-                  <span className="inline-block w-7 font-bold">{DAY_LABELS[d] ?? d}</span> {t}
+                  <span className="inline-block w-7 font-bold">{dayLabel(d, lang)}</span> {time}
                 </li>
               ))}
             </ul>
@@ -107,11 +98,11 @@ export function StationSheet({
 
         {p.materials?.length ? (
           <div>
-            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">Hier kannst du entsorgen</h3>
+            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">{t.station.materials}</h3>
             <ul className="mt-2 flex flex-wrap gap-2">
               {p.materials.map((m) => (
                 <li key={m} className="rounded-full bg-white px-3 py-1 text-sm text-ink">
-                  {MATERIAL_LABELS[m] ?? m}
+                  {materialLabel(m, lang)}
                 </li>
               ))}
             </ul>
@@ -129,11 +120,11 @@ export function StationSheet({
             data-umami-event-station={p.id}
             className="block rounded-2xl bg-orange px-5 py-3.5 text-center font-display text-lg font-bold text-white shadow-sm hover:brightness-105"
           >
-            Keine Zeit? Wir bringen&apos;s hin
+            {t.station.pickup}
           </Link>
         )}
 
-        {p.placeholder && <p className="text-xs text-ink/50">Beispieldaten: Ort und Termine sind nicht echt.</p>}
+        {p.placeholder && <p className="text-xs text-ink/50">{t.station.sample}</p>}
       </div>
     </Sheet>
   );

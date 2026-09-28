@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useLang } from "@/components/i18n/LangProvider";
 
 export type LocateResult = { lng: number; lat: number };
 
@@ -9,11 +10,12 @@ export type LocateResult = { lng: number; lat: number };
  * geolocation, the map keeps working and we show a short hint (A5).
  */
 export function useLocate(onLocate: (pos: LocateResult) => void, setHint: (hint: string | null) => void) {
+  const { t } = useLang();
   const [busy, setBusy] = useState(false);
   const locate = useCallback(() => {
     setHint(null);
     if (!("geolocation" in navigator)) {
-      setHint("Dein Browser unterstützt keine Standortabfrage. Tippe auf die Karte oder wähle PLZ oder Kreis.");
+      setHint(t.locate.unsupported);
       return;
     }
     setBusy(true);
@@ -25,14 +27,12 @@ export function useLocate(onLocate: (pos: LocateResult) => void, setHint: (hint:
       (err) => {
         setBusy(false);
         setHint(
-          err.code === err.PERMISSION_DENIED
-            ? "Standort nicht freigegeben. Tippe stattdessen auf die Karte oder wähle PLZ oder Kreis."
-            : "Standort konnte nicht ermittelt werden.",
+          err.code === err.PERMISSION_DENIED ? t.locate.denied : t.locate.failed,
         );
       },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
-  }, [onLocate, setHint]);
+  }, [onLocate, setHint, t]);
   return { locate, busy };
 }
 
@@ -48,12 +48,13 @@ function LocateIcon({ busy }: { busy: boolean }) {
 
 /** Round map button (tablet/desktop; on phones the picker's inline button is used). */
 export function LocateButton({ locate, busy }: { locate: () => void; busy: boolean }) {
+  const { t } = useLang();
   return (
     <button
       type="button"
       onClick={locate}
       disabled={busy}
-      aria-label="Meinen Standort verwenden"
+      aria-label={t.locate.aria}
       className="pointer-events-auto absolute right-2.5 bottom-[7.5rem] z-10 hidden h-11 w-11 place-items-center rounded-full bg-white text-ink shadow-md hover:bg-mint disabled:opacity-60 md:grid"
     >
       <LocateIcon busy={busy} />
@@ -63,16 +64,17 @@ export function LocateButton({ locate, busy }: { locate: () => void; busy: boole
 
 /** Inline "Standort" button inside the start card / panel (phones). */
 export function LocateInline({ locate, busy }: { locate: () => void; busy: boolean }) {
+  const { t } = useLang();
   return (
     <button
       type="button"
       onClick={locate}
       disabled={busy}
-      aria-label="Meinen Standort verwenden"
+      aria-label={t.locate.aria}
       className="flex shrink-0 items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-2.5 py-2 text-sm font-bold text-ink shadow-sm hover:bg-mint disabled:opacity-60 md:hidden"
     >
       <LocateIcon busy={busy} />
-      Standort
+      {t.locate.inline}
     </button>
   );
 }

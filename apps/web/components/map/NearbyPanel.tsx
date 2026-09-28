@@ -4,26 +4,14 @@ import { useState, type ReactNode } from "react";
 import { bandLabel, formatDistance, type NearbyMode, type ResolvedAnchor } from "geo";
 import { anchorSubtitle, anchorTitle, RADII, strictAreaName, type Radius } from "@/lib/geo/anchor";
 import { groupDates, groupPlaces, type Group, type StationResult } from "@/lib/geo/group";
-import { KINDS, MATERIAL_LABELS, timeWindow } from "@/lib/geo/kinds";
+import { kindShort, materialLabel, timeWindow } from "@/lib/geo/kinds";
+import { formatDate, formatShortDate } from "@/lib/i18n/format";
+import { TYPE_LABELS } from "@/lib/email/copy";
+import { useLang } from "@/components/i18n/LangProvider";
 import type { PlzCalendar } from "@/lib/geo/types";
 import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
 import { KindDot } from "./KindDot";
 import { Sheet } from "./Sheet";
-import { formatDate } from "./StationSheet";
-
-const shortDate = new Intl.DateTimeFormat("de-CH", { weekday: "short", day: "numeric", month: "numeric", timeZone: "Europe/Zurich" });
-/** "Mi., 30.9." */
-function formatShort(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return shortDate.format(new Date(Date.UTC(y, m - 1, d, 12)));
-}
-
-const KERBSIDE_LABELS: Record<string, string> = {
-  paper: "Papier",
-  cardboard: "Karton",
-  organic: "Bioabfall",
-  waste: "Kehricht",
-};
 
 type Tab = "dates" | "places";
 
@@ -57,36 +45,37 @@ export function NearbyPanel({
   onSelectStation: (id: string) => void;
   onClose: () => void;
 }) {
+  const { lang, t } = useLang();
   const [tab, setTab] = useState<Tab>("dates");
-  const areaName = strictAreaName(resolved);
+  const areaName = strictAreaName(resolved, lang);
   const isArea = resolved.anchor.type !== "point";
-  const bandAreaName = isArea ? (resolved.anchor.type === "kreis" ? `Kreis ${resolved.kreis}` : `PLZ ${resolved.plz}`) : null;
+  const bandAreaName = isArea ? (resolved.anchor.type === "kreis" ? t.anchor.kreis(resolved.kreis!) : t.anchor.plz(resolved.plz!)) : null;
   const dateGroups = groupDates(results, today);
   const placeGroups = groupPlaces(results);
   const dateCount = dateGroups.reduce((n, g) => n + g.items.length, 0);
   const anchorPlz = resolved.plz;
 
   const subtitle = [
-    anchorSubtitle(resolved),
-    resolved.anchor.type === "point" && resolved.anchor.source === "map" ? "Pin verschieben oder woanders tippen" : "",
+    anchorSubtitle(resolved, lang),
+    resolved.anchor.type === "point" && resolved.anchor.source === "map" ? t.nearby.moveHint : "",
   ]
     .filter(Boolean)
     .join(" · ");
 
   return (
-    <Sheet title={anchorTitle(resolved.anchor)} subtitle={subtitle || undefined} onClose={onClose} testId="nearby-panel">
+    <Sheet title={anchorTitle(resolved.anchor, lang)} subtitle={subtitle || undefined} onClose={onClose} testId="nearby-panel">
       <div className="mt-2 space-y-2.5 md:mt-3 md:space-y-3">
         {picker}
 
         {calendar && Object.keys(calendar.next).length > 0 && (
           <div data-testid="kerbside" className="rounded-2xl bg-white px-3 py-2.5">
-            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">Abfuhr in {calendar.plz}</h3>
+            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">{t.nearby.kerbside(calendar.plz)}</h3>
             <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-              {(["paper", "cardboard", "organic", "waste"] as const).map((t) =>
-                calendar.next[t]?.[0] ? (
-                  <li key={t} className="flex justify-between gap-2">
-                    <span className="text-ink/60">{KERBSIDE_LABELS[t]}</span>
-                    <span className="font-bold whitespace-nowrap text-ink">{formatShort(calendar.next[t]![0])}</span>
+              {(["paper", "cardboard", "organic", "waste"] as const).map((k) =>
+                calendar.next[k]?.[0] ? (
+                  <li key={k} className="flex justify-between gap-2">
+                    <span className="text-ink/60">{TYPE_LABELS[lang][k]}</span>
+                    <span className="font-bold whitespace-nowrap text-ink">{formatShortDate(calendar.next[k]![0], lang)}</span>
                   </li>
                 ) : null,
               )}
@@ -99,19 +88,19 @@ export function NearbyPanel({
 
         {/* Scope: nearby (default) or only inside the Kreis / postcode */}
         <div className="flex flex-wrap items-center gap-2">
-          <div role="radiogroup" aria-label="Suchbereich" className="flex rounded-xl bg-ink/5 p-1 text-sm font-bold">
+          <div role="radiogroup" aria-label={t.nearby.scopeAria} className="flex rounded-xl bg-ink/5 p-1 text-sm font-bold">
             <ScopeButton active={mode === "nearby"} onClick={() => onModeChange("nearby")}>
-              In der Nähe
+              {t.nearby.nearby}
             </ScopeButton>
             {areaName && (
               <ScopeButton active={mode === "strict"} onClick={() => onModeChange("strict")}>
-                Nur {areaName}
+                {t.nearby.only(areaName)}
               </ScopeButton>
             )}
           </div>
           {mode === "nearby" && (
             <select
-              aria-label="Umkreis"
+              aria-label={t.nearby.radiusAria}
               value={radius}
               onChange={(e) => onRadiusChange(Number(e.target.value) as Radius)}
               className="rounded-xl border border-ink/15 bg-white px-2 py-1.5 text-sm font-bold text-ink"
@@ -126,28 +115,28 @@ export function NearbyPanel({
           )}
         </div>
 
-        <div role="tablist" aria-label="Ansicht" className="flex gap-1 border-b border-ink/10">
+        <div role="tablist" aria-label={t.nearby.viewAria} className="flex gap-1 border-b border-ink/10">
           <TabButton active={tab === "dates"} onClick={() => setTab("dates")}>
-            Termine ({dateCount})
+            {t.nearby.dates(dateCount)}
           </TabButton>
           <TabButton active={tab === "places"} onClick={() => setTab("places")}>
-            Orte ({results.length})
+            {t.nearby.places(results.length)}
           </TabButton>
         </div>
 
         {results.length === 0 ? (
           <div className="rounded-2xl bg-white px-4 py-3 text-sm text-ink/70">
-            Keine Stationen {mode === "strict" ? `in ${areaName}` : `im Umkreis von ${formatDistance(radius)}`}.
+            {mode === "strict" && areaName ? t.nearby.noneIn(areaName) : t.nearby.noneWithin(formatDistance(radius, lang))}
             {mode === "nearby" && radius < 2000 && (
               <button type="button" className="ml-1 font-bold text-orange underline" onClick={() => onRadiusChange(2000)}>
-                Auf 2 km erweitern
+                {t.nearby.widen}
               </button>
             )}
           </div>
         ) : tab === "dates" ? (
           dateCount === 0 ? (
             <p className="rounded-2xl bg-white px-4 py-3 text-sm text-ink/70">
-              Keine anstehenden Termine hier. Unter «Orte» findest du Sammelstellen und Recyclinghöfe.
+              {t.nearby.noDates}
             </p>
           ) : (
             <Groups
@@ -158,17 +147,17 @@ export function NearbyPanel({
             >
               {(row) => {
                 const p = row.result.item.f.properties;
-                const time = timeWindow(p.kind, p.hours, row.date);
+                const time = timeWindow(p.kind, p.hours, row.date, lang);
                 return (
                   <RowButton onClick={() => onSelectStation(p.id)}>
                     <KindDot kind={p.kind} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold text-ink">
-                        {formatDate(row.date)}
+                        {formatDate(row.date, lang)}
                         {time && <span className="font-normal text-ink/60"> · {time}</span>}
                       </span>
                       <span className="block truncate text-sm text-ink/70">
-                        {KINDS[p.kind].short} · {p.name}
+                        {kindShort(p.kind, lang)} · {p.name}
                         {p.address ? `, ${p.address}` : ""}
                       </span>
                       <OfficialBadge show={!!anchorPlz && !!p.servesPlz?.includes(anchorPlz)} plz={anchorPlz} />
@@ -190,9 +179,9 @@ export function NearbyPanel({
               const p = r.item.f.properties;
               const detail =
                 p.kind === "sammelstelle"
-                  ? (p.materials ?? []).map((m) => MATERIAL_LABELS[m] ?? m).join(", ")
+                  ? (p.materials ?? []).map((m) => materialLabel(m, lang)).join(", ")
                   : p.nextDates?.find((d) => d >= today)
-                    ? `nächster Termin ${formatDate(p.nextDates.find((d) => d >= today)!)}`
+                    ? t.nearby.nextDate(formatDate(p.nextDates.find((d) => d >= today)!, lang))
                     : (p.address ?? "");
               return (
                 <RowButton onClick={() => onSelectStation(p.id)}>
@@ -200,7 +189,7 @@ export function NearbyPanel({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-bold text-ink">{p.name}</span>
                     <span className="block truncate text-sm text-ink/70">
-                      {KINDS[p.kind].short}
+                      {kindShort(p.kind, lang)}
                       {detail ? ` · ${detail}` : ""}
                     </span>
                   </span>
@@ -212,7 +201,7 @@ export function NearbyPanel({
         )}
 
         {resolved.kreis === null && resolved.anchor.type === "point" && (
-          <p className="text-xs text-ink/50">Der Punkt liegt ausserhalb der Stadt Zürich; es werden die nächsten Stationen gezeigt.</p>
+          <p className="text-xs text-ink/50">{t.nearby.outsidePoint}</p>
         )}
       </div>
     </Sheet>
@@ -232,11 +221,12 @@ function Groups<T>({
   itemKey: (item: T) => string;
   children: (item: T) => ReactNode;
 }) {
+  const { lang } = useLang();
   return (
     <div data-testid={testId} className="space-y-4">
       {groups.map((g) => (
-        <section key={g.band} aria-label={bandLabel(g.band, areaName)}>
-          <h3 className="mb-1.5 text-xs font-bold tracking-wide text-ink/60 uppercase">{bandLabel(g.band, areaName)}</h3>
+        <section key={g.band} aria-label={bandLabel(g.band, areaName, lang)}>
+          <h3 className="mb-1.5 text-xs font-bold tracking-wide text-ink/60 uppercase">{bandLabel(g.band, areaName, lang)}</h3>
           <ul className="space-y-1.5">
             {g.items.map((it) => (
               <li key={itemKey(it)}>{children(it)}</li>
@@ -261,18 +251,20 @@ function RowButton({ onClick, children }: { onClick: () => void; children: React
 }
 
 function Distance({ r }: { r: StationResult }) {
+  const { lang, t } = useLang();
   return (
     <span className="shrink-0 text-right text-xs text-ink/60 tabular-nums">
-      {r.distance === 0 ? "im Gebiet" : formatDistance(r.distance)}
+      {r.distance === 0 ? t.nearby.inArea : formatDistance(r.distance, lang)}
     </span>
   );
 }
 
 function OfficialBadge({ show, plz }: { show: boolean; plz: string | null }) {
+  const { t } = useLang();
   if (!show) return null;
   return (
     <span className="mt-1 inline-block rounded-full bg-mint px-2 py-0.5 text-[11px] font-bold text-moss">
-      offiziell für {plz}
+      {t.nearby.officialFor(plz ?? "")}
     </span>
   );
 }

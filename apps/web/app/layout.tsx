@@ -7,6 +7,10 @@ import "@fontsource/atkinson-hyperlegible/400.css";
 import "@fontsource/atkinson-hyperlegible/700.css";
 import "./globals.css";
 import { AttributionCapture } from "@/components/analytics/AttributionCapture";
+import { LangProvider } from "@/components/i18n/LangProvider";
+import { HTML_LANG } from "@/lib/i18n/lang";
+import { getLang } from "@/lib/i18n/server";
+import { ui } from "@/lib/i18n/ui";
 import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS } from "@/lib/analytics/umami";
 
 // Umami is only loaded when a website id is configured (production).
@@ -16,10 +20,10 @@ const umamiId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
 const umamiSrc = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL || "https://cloud.umami.is/script.js";
 const umamiDomains = process.env.NEXT_PUBLIC_UMAMI_DOMAINS;
 
-export const metadata: Metadata = {
-  title: { default: "Furtli – Recycling in Zürich", template: "%s · Furtli" },
-  description: "Wo und wann du in Zürich entsorgen kannst: Mobile Recyclinghöfe, Sonderabfallmobil und Sammelstellen auf einer Karte.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = ui(await getLang()).meta;
+  return { title: { default: t.title, template: "%s · Furtli" }, description: t.description };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -28,11 +32,12 @@ export const viewport: Viewport = {
   themeColor: "#F3F5F2",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const lang = await getLang();
   return (
-    <html lang="de-CH" className="h-full antialiased">
+    <html lang={HTML_LANG[lang]} className="h-full antialiased">
       <body className="min-h-full">
-        {children}
+        <LangProvider initialLang={lang}>{children}</LangProvider>
         <AttributionCapture />
         {umamiId && (
           <>

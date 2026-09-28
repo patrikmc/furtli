@@ -4,6 +4,7 @@ import { listUnsubscribeHeaders, mapPath, trackedUrl, unsubscribePageUrl } from 
 import { emailFrom, type Mailer, type OutgoingEmail, type SendResult } from "@/lib/email/mailer";
 import { renderDigest, renderReminder, type RenderedEmail } from "@/lib/email/render";
 import type { EmailItem } from "@/lib/email/types";
+import type { Lang } from "@/lib/i18n/lang";
 import { zurichToday } from "@/lib/server/today";
 import { loadPlanEvents } from "./events";
 import { addDays, planDigests, planReminders, weekday } from "./plan";
@@ -50,9 +51,9 @@ function planSub(s: Subscriber, rows: TargetRow[]) {
   return { id: s.id, targets: activeTargets(rows), row: s, rows };
 }
 
-function pickupUrl(items: EmailItem[], campaign: "reminder" | "digest"): string | null {
+function pickupUrl(items: EmailItem[], campaign: "reminder" | "digest", lang: Lang): string | null {
   const mrh = items.find((i) => i.type === "mrh" && i.stationId);
-  return mrh ? trackedUrl(`/abholen?station=${encodeURIComponent(mrh.stationId!)}`, campaign, "pickup") : null;
+  return mrh ? trackedUrl(`/abholen?station=${encodeURIComponent(mrh.stationId!)}`, campaign, "pickup", lang) : null;
 }
 
 export async function runScheduledEmails(
@@ -96,9 +97,9 @@ export async function runScheduledEmails(
           date: tomorrow,
           items,
           summary: summaryOf(sub.rows, settingsOf(sub.row)),
-          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "reminder"),
-          pickupUrl: pickupUrl(items, "reminder"),
-          unsubscribeUrl: unsubscribePageUrl(sub.row.unsubscribeToken),
+          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "reminder", undefined, settingsOf(sub.row).lang),
+          pickupUrl: pickupUrl(items, "reminder", settingsOf(sub.row).lang),
+          unsubscribeUrl: unsubscribePageUrl(sub.row.unsubscribeToken, settingsOf(sub.row).lang),
         }),
     })),
     ...digests.map(({ sub, days }) => ({
@@ -112,12 +113,13 @@ export async function runScheduledEmails(
           to: digestTo,
           days,
           summary: summaryOf(sub.rows, settingsOf(sub.row)),
-          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "digest"),
+          mapUrl: trackedUrl(mapPath(primaryTarget(sub.rows)), "digest", undefined, settingsOf(sub.row).lang),
           pickupUrl: pickupUrl(
             days.flatMap((d) => d.items),
             "digest",
+            settingsOf(sub.row).lang,
           ),
-          unsubscribeUrl: unsubscribePageUrl(sub.row.unsubscribeToken),
+          unsubscribeUrl: unsubscribePageUrl(sub.row.unsubscribeToken, settingsOf(sub.row).lang),
         }),
     })),
   ];

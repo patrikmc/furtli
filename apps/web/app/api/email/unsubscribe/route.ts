@@ -1,5 +1,6 @@
 import { getDb, hasDatabase } from "db";
 import { getMailer } from "@/lib/email/mailer";
+import { asLang } from "@/lib/i18n/lang";
 import { unsubscribe } from "@/lib/subscriptions/service";
 
 export const dynamic = "force-dynamic";
@@ -25,5 +26,6 @@ export async function POST(req: Request) {
     }
   }
   if (oneClick) return new Response(outcome === "error" ? "error" : "ok", { status: outcome === "error" ? 500 : 200 });
-  return Response.redirect(new URL(`/abo/fertig?s=${outcome}`, req.url), 303);
+  const lang = asLang(form?.get("lang"));
+  return Response.redirect(new URL(`/abo/fertig?s=${outcome}&lang=${lang}`, req.url), 303);
 }

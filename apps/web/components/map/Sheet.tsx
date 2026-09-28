@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useLang } from "@/components/i18n/LangProvider";
 
 /** Mobile sheet heights (MapShell's panelPadding keeps the focus above the compact one). */
 export const SHEET_COMPACT = 0.4;
@@ -34,6 +35,7 @@ export function Sheet({
   testId: string;
   children: ReactNode;
 }) {
+  const { t } = useLang();
   const [expanded, setExpanded] = useState(false);
   const [dragY, setDragY] = useState<number | null>(null);
   const start = useRef<{ y: number; moved: boolean } | null>(null);
@@ -93,7 +95,7 @@ export function Sheet({
       <div className="sticky top-0 z-10 -mx-4 bg-paper px-4 md:hidden">
         <button
           type="button"
-          aria-label={expanded ? "Bereich verkleinern" : "Bereich vergrössern"}
+          aria-label={expanded ? t.sheet.shrink : t.sheet.expand}
           aria-expanded={expanded}
           data-testid="sheet-handle"
           onPointerDown={onPointerDown}
@@ -116,7 +118,7 @@ export function Sheet({
           <button
             type="button"
             onClick={onBack}
-            aria-label="Zurück zur Liste"
+            aria-label={t.sheet.back}
             className="-mt-1 -ml-2 rounded-full p-2 text-ink/60 hover:bg-ink/5 hover:text-ink"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
@@ -131,7 +133,7 @@ export function Sheet({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Schliessen"
+          aria-label={t.sheet.close}
           className="-mt-1.5 -mr-2 rounded-full p-2 text-ink/60 hover:bg-ink/5 hover:text-ink"
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>

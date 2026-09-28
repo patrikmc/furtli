@@ -121,6 +121,8 @@ describe("subscription flow", () => {
     expect(welcome.subject).toBe("Du bist dabei: deine Erinnerungen sind aktiv");
     expect(welcome.text).toContain("Postleitzahl 8004: Karton, Mobiler Recyclinghof");
     expect(welcome.html).toContain("utm_source=welcome");
+    expect(welcome.html).toContain("/abo/abmelden?t=");
+    expect(welcome.html).toContain("lang=de");
     expect(welcome.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     unsubscribeToken = tokenFrom(welcome.html, "/abo/abmelden");
     expect(await confirm({ db, mailer, now: later(MON, 6) }, token)).toBe("invalid");
@@ -191,6 +193,8 @@ describe("subscription flow", () => {
     const c = mailer.last();
     expect(c.subject).toBe("Please confirm your new settings");
     expect(c.text).toContain("Postcode 8004: Paper (changed)");
+    // Links open the site in the email's language.
+    expect(c.html).toMatch(/\/abo\/bestaetigen\?t=[A-Za-z0-9_-]+&amp;lang=en/);
     expect(c.text).toContain("Postcode 8003: Cardboard");
     expect((await targetsOf("anna@example.ch"))[0].topics).toEqual(["cardboard", "mrh"]);
     expect(await confirm({ db, mailer, now: later(MON, 41) }, tokenFrom(c.html, "/abo/bestaetigen"))).toBe("confirmed");

@@ -44,6 +44,8 @@ export const subscribeSchema = z
     reminders: z.boolean().default(true),
     digest: z.boolean().default(false),
     consent: z.literal(true),
+    /** Language the consent sentence was shown in (the site language). */
+    consentLang: z.enum(["de", "en"]).default("de"),
     /** Where the form was shown ("nearby", "station", …). */
     source: optionalText(40),
     attribution: attributionSchema.optional(),

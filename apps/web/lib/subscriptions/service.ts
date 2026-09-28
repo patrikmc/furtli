@@ -77,8 +77,8 @@ export async function subscribe(deps: Deps, input: SubscribeInput): Promise<Subs
     if (!s || !STATION_TOPICS.includes(s.kind as Topic)) throw new SubscriptionInputError("Unknown station");
   }
 
-  // The form is German-only for now, so the German consent text is what people saw.
-  const consent = { consentText: CONSENT_TEXT.de, consentAt: now };
+  // Stored as proof: the consent sentence exactly as shown (in the site language).
+  const consent = { consentText: CONSENT_TEXT[input.consentLang], consentAt: now };
   let [row] = await db.select().from(subscriber).where(eq(subscriber.email, input.email)).limit(1);
   let isUpdate = false;
 
@@ -145,8 +145,8 @@ export async function subscribe(deps: Deps, input: SubscribeInput): Promise<Subs
   const settings = pendingSettingsOf(row) ?? settingsOf(row);
   const email = await renderConfirm({
     lang: settings.lang,
-    confirmUrl: confirmPageUrl(row.confirmToken!),
-    mapUrl: trackedUrl(mapPath(target), "welcome"),
+    confirmUrl: confirmPageUrl(row.confirmToken!, settings.lang),
+    mapUrl: trackedUrl(mapPath(target), "welcome", undefined, settings.lang),
     summary: summaryOf(rows, settings, "preview"),
     isUpdate,
   });
@@ -232,8 +232,8 @@ async function sendWelcome(deps: Deps, s: Subscriber, now: Date) {
     lang: settings.lang,
     summary: summaryOf(rows, settings),
     next,
-    mapUrl: trackedUrl(mapPath(primaryTarget(rows)), "welcome"),
-    unsubscribeUrl: unsubscribePageUrl(s.unsubscribeToken),
+    mapUrl: trackedUrl(mapPath(primaryTarget(rows)), "welcome", undefined, settings.lang),
+    unsubscribeUrl: unsubscribePageUrl(s.unsubscribeToken, settings.lang),
   });
   const [claimed] = await db
     .insert(emailLog)
@@ -253,6 +253,12 @@ async function sendWelcome(deps: Deps, s: Subscriber, now: Date) {
     .update(emailLog)
     .set({ status: r.error ? "failed" : r.dev ? "dev" : "sent", providerId: r.id ?? null, error: r.error ?? null, sentAt: r.error ? null : now })
     .where(eq(emailLog.id, claimed.id));
+}
+
+/** Email language of the subscriber behind an unsubscribe token (for the unsubscribe page). */
+export async function langForUnsubscribeToken(db: Database, token: string) {
+  const [s] = await db.select({ lang: subscriber.lang }).from(subscriber).where(eq(subscriber.unsubscribeToken, token)).limit(1);
+  return s ? settingsOf({ lang: s.lang, reminders: false, digest: false }).lang : null;
 }
 
 export type UnsubscribeOutcome = "unsubscribed" | "invalid";

@@ -3,6 +3,7 @@ import { TYPE_HINTS, TYPE_LABELS, formatShortDate, type Lang } from "../../lib/e
 import type { EmailItem, SubscriptionSummary } from "../../lib/email/types";
 import { COPY } from "../../lib/email/copy";
 import { summaryLines } from "../../lib/email/summary";
+import { localizeTimeText } from "../../lib/i18n/format";
 import { C } from "./Layout";
 
 const DOT: Record<string, string> = {
@@ -17,7 +18,7 @@ const DOT: Record<string, string> = {
 /** One collection: coloured bar, label, where/when, and a practical hint. */
 export function ItemCard({ item, lang, showDate = false, hint = true }: { item: EmailItem; lang: Lang; showDate?: boolean; hint?: boolean }) {
   const where = [item.stationName, item.address].filter(Boolean).join(", ");
-  const meta = [showDate ? formatShortDate(item.date, lang) : null, item.time, where || null].filter(Boolean).join(" · ");
+  const meta = [showDate ? formatShortDate(item.date, lang) : null, item.time && localizeTimeText(item.time, lang), where || null].filter(Boolean).join(" · ");
   return (
     <Section
       style={{

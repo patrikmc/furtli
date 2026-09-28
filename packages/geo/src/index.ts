@@ -206,23 +206,31 @@ export function bandFor(distance: number, isArea: boolean): number {
   return i === -1 ? DISTANCE_BANDS.length : i;
 }
 
-/** "unter 300 m", "300–600 m", "1–2 km", or for area anchors "bis 300 m ausserhalb". */
-export function bandLabel(band: number, areaName: string | null): string {
-  if (band === -1) return `In ${areaName ?? "diesem Gebiet"}`;
+/** Band words per language (the web app passes its site language). */
+const BAND_WORDS = {
+  de: { in: "In", thisArea: "diesem Gebiet", outside: " ausserhalb", upTo: "bis", over: "über" },
+  en: { in: "In", thisArea: "this area", outside: " outside", upTo: "up to", over: "over" },
+} as const;
+
+/** "bis 300 m", "300–600 m", "1–2 km", or for area anchors "bis 300 m ausserhalb" (English: "up to 300 m", …). */
+export function bandLabel(band: number, areaName: string | null, lang: "de" | "en" = "de"): string {
+  const w = BAND_WORDS[lang];
+  if (band === -1) return `${w.in} ${areaName ?? w.thisArea}`;
   const fmt = (m: number) => (m >= 1000 ? `${m / 1000} km` : `${m} m`);
   const hi = DISTANCE_BANDS[band];
   const lo = band === 0 ? 0 : DISTANCE_BANDS[band - 1];
-  const suffix = areaName ? " ausserhalb" : "";
-  if (hi === undefined) return `über ${fmt(lo)}${suffix}`;
-  if (lo === 0) return `bis ${fmt(hi)}${suffix}`;
+  const suffix = areaName ? w.outside : "";
+  if (hi === undefined) return `${w.over} ${fmt(lo)}${suffix}`;
+  if (lo === 0) return `${w.upTo} ${fmt(hi)}${suffix}`;
   const unit = hi >= 1000 && lo >= 1000 ? " km" : hi >= 1000 ? "" : " m";
   return unit === ""
     ? `${fmt(lo)} – ${fmt(hi)}${suffix}`
     : `${lo >= 1000 ? lo / 1000 : lo}–${hi >= 1000 ? hi / 1000 : hi}${unit}${suffix}`;
 }
 
-/** Human distance: "180 m", "1,2 km". */
-export function formatDistance(m: number): string {
+/** "180 m", "1,2 km" (German decimal comma) / "1.2 km". */
+export function formatDistance(m: number, lang: "de" | "en" = "de"): string {
   if (m < 1000) return `${Math.max(10, Math.round(m / 10) * 10)} m`;
-  return `${(m / 1000).toFixed(1).replace(".", ",")} km`;
+  const km = (m / 1000).toFixed(1);
+  return `${lang === "de" ? km.replace(".", ",") : km} km`;
 }

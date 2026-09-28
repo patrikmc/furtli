@@ -1,3 +1,4 @@
+import { LANG_PARAM, type Lang } from "@/lib/i18n/lang";
 import { siteUrl } from "@/lib/site";
 
 /**
@@ -6,13 +7,16 @@ import { siteUrl } from "@/lib/site";
  *   utm_source = reminder | newsletter | welcome, utm_medium = email,
  *   utm_campaign = the email kind (and date for reminders/digests).
  * Confirm and unsubscribe links carry no UTM tags (they are not marketing).
+ * Every link carries `lang=` (the email's language), so the site opens in
+ * the same language (the proxy stores it in the language cookie).
  */
 export type EmailCampaign = "reminder" | "digest" | "welcome";
 
 const SOURCE: Record<EmailCampaign, string> = { reminder: "reminder", digest: "newsletter", welcome: "welcome" };
 
-export function trackedUrl(path: string, campaign: EmailCampaign, content?: string): string {
+export function trackedUrl(path: string, campaign: EmailCampaign, content?: string, lang?: Lang): string {
   const url = new URL(path, siteUrl() + "/");
+  if (lang) url.searchParams.set(LANG_PARAM, lang);
   url.searchParams.set("utm_source", SOURCE[campaign]);
   url.searchParams.set("utm_medium", "email");
   url.searchParams.set("utm_campaign", campaign);
@@ -27,13 +31,13 @@ export function mapPath(opts: { plz?: string | null; stationId?: string | null }
   return "/";
 }
 
-export function confirmPageUrl(token: string): string {
-  return `${siteUrl()}/abo/bestaetigen?t=${encodeURIComponent(token)}`;
+export function confirmPageUrl(token: string, lang?: Lang): string {
+  return `${siteUrl()}/abo/bestaetigen?t=${encodeURIComponent(token)}${lang ? `&${LANG_PARAM}=${lang}` : ""}`;
 }
 
 /** Page with an "Abmelden" button (footer link; safe against link scanners). */
-export function unsubscribePageUrl(token: string): string {
-  return `${siteUrl()}/abo/abmelden?t=${encodeURIComponent(token)}`;
+export function unsubscribePageUrl(token: string, lang?: Lang): string {
+  return `${siteUrl()}/abo/abmelden?t=${encodeURIComponent(token)}${lang ? `&${LANG_PARAM}=${lang}` : ""}`;
 }
 
 /** RFC 8058 one-click endpoint for the List-Unsubscribe header (mail clients POST to it). */

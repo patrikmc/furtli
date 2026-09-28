@@ -109,6 +109,14 @@ map (PLZ panel / MRH stop) ── "Erinnerung per E-Mail" form ── POST /api/
 - **Locally without Resend:** leave `RESEND_API_KEY` unset; emails are printed to the `pnpm dev` log with their links (click the confirm link from there). Run the cron by hand: `curl -H "Authorization: Bearer $CRON_SECRET" "localhost:3000/api/cron/emails?dryRun=1"` (`&forceDigest=1` for the Sunday overview).
 - **Going live:** verify the sending domain in Resend (SPF, DKIM, DMARC), set `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET` in Vercel, `ADMIN_SECRET` (for the admin lookup), run `pnpm db:migrate` (migrations `0001_email_subscriptions`, `0002_subscriptions_per_target`). Review `/datenschutz` (draft) and the collection hints in `lib/email/copy.ts` before launch.
 
+### Languages (DE / EN)
+
+- **German is the default**; English via the DE/EN toggle (map header and every standalone page) or a `?lang=en` link. The choice is one cookie, `furtli_lang` (a year; only "de"/"en"); `proxy.ts` stores `?lang=` in it, also for the request itself.
+- **All website wording** is in `apps/web/lib/i18n/ui.ts` (`de` and `en`, same keys; a test checks it). Server components use `getLang()` (`lib/i18n/server.ts`), client components `useLang()` (`components/i18n/LangProvider.tsx`). Dates, distances and the city's opening times ("15–19 Uhr" → "15:00–19:00") are formatted per language (`lib/i18n/format.ts`).
+- **Emails → site:** every link in an email carries `lang=` (the email's language), so confirm/unsubscribe pages and the map open in that language. Older links without it use the email's language unless the visitor has chosen one. The result page after the button keeps the language.
+- **Subscribe form:** the email language follows the site language until picked in the form; the consent sentence is stored in the language it was shown in.
+- Station names and addresses stay as the city publishes them. `/datenschutz` has an English translation; the German text is binding.
+
 ## How the map is built
 
 ```

@@ -45,6 +45,8 @@ describe("email templates", () => {
   it("English reminder", async () => {
     const e = await renderReminder({ ...Reminder.PreviewProps, lang: "en" });
     expect(e.subject).toBe("Tomorrow: Cardboard and Mobile recycling point");
+    expect(e.text).toContain("15:00–19:00"); // city hours "15–19 Uhr" in English
+    expect(e.text).not.toContain("Uhr");
     expect(e.html).toContain("Unsubscribe");
   });
 

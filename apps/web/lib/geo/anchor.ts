@@ -1,4 +1,6 @@
 import type { Anchor, NearbyMode, ResolvedAnchor } from "geo";
+import type { Lang } from "@/lib/i18n/lang";
+import { ui } from "@/lib/i18n/ui";
 import { parseKreisParam } from "./kreis";
 
 export const RADII = [500, 1000, 2000] as const;
@@ -57,21 +59,24 @@ export function writeSearchParams(params: URLSearchParams, s: SearchState): URLS
   return params;
 }
 
-/** "Dein Standort", "Gewählter Punkt", "Kreis 4", "PLZ 8004". */
-export function anchorTitle(a: Anchor): string {
-  if (a.type === "point") return a.source === "gps" ? "Dein Standort" : "Gewählter Punkt";
-  return a.type === "kreis" ? `Kreis ${a.kreis}` : `PLZ ${a.plz}`;
+/** "Dein Standort", "Gewählter Punkt", "Kreis 4", "PLZ 8004" (English: "Your location", "Postcode 8004", …). */
+export function anchorTitle(a: Anchor, lang: Lang = "de"): string {
+  const t = ui(lang).anchor;
+  if (a.type === "point") return a.source === "gps" ? t.gps : t.map;
+  return a.type === "kreis" ? t.kreis(a.kreis) : t.plz(a.plz);
 }
 
 /** Where a point lies: "Kreis 4 · 8004"; empty for area anchors. */
-export function anchorSubtitle(r: ResolvedAnchor): string {
+export function anchorSubtitle(r: ResolvedAnchor, lang: Lang = "de"): string {
+  const t = ui(lang).anchor;
   if (r.anchor.type !== "point") return "";
-  if (!r.kreis) return "ausserhalb der Stadt Zürich";
-  return [`Kreis ${r.kreis}`, r.plz].filter(Boolean).join(" · ");
+  if (!r.kreis) return t.outsideCity;
+  return [t.kreis(r.kreis), r.plz].filter(Boolean).join(" · ");
 }
 
 /** Name of the area "strict" mode filters by: "Kreis 4" or "PLZ 8004". */
-export function strictAreaName(r: ResolvedAnchor): string | null {
-  if (r.anchor.type === "plz") return `PLZ ${r.anchor.plz}`;
-  return r.kreis ? `Kreis ${r.kreis}` : null;
+export function strictAreaName(r: ResolvedAnchor, lang: Lang = "de"): string | null {
+  const t = ui(lang).anchor;
+  if (r.anchor.type === "plz") return t.plz(r.anchor.plz);
+  return r.kreis ? t.kreis(r.kreis) : null;
 }

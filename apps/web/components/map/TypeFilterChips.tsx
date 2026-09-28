@@ -1,6 +1,7 @@
 "use client";
 
-import { KINDS } from "@/lib/geo/kinds";
+import { useLang } from "@/components/i18n/LangProvider";
+import { kindShort } from "@/lib/geo/kinds";
 import { STATION_KINDS, type StationKind } from "@/lib/geo/types";
 import { KindDot } from "./KindDot";
 
@@ -11,8 +12,9 @@ export function TypeFilterChips({
   active: StationKind[];
   onToggle: (kind: StationKind) => void;
 }) {
+  const { lang, t } = useLang();
   return (
-    <div role="group" aria-label="Stationstypen filtern" className="flex gap-2 overflow-x-auto pb-1">
+    <div role="group" aria-label={t.map.filterAria} className="flex gap-2 overflow-x-auto pb-1">
       {STATION_KINDS.map((kind) => {
         const on = active.includes(kind);
         return (
@@ -28,7 +30,7 @@ export function TypeFilterChips({
             <span className={on ? "" : "opacity-40 grayscale"}>
               <KindDot kind={kind} />
             </span>
-            {KINDS[kind].short}
+            {kindShort(kind, lang)}
           </button>
         );
       })}

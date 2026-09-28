@@ -1,15 +1,12 @@
 import type { EventTypeValue } from "db/schema";
+// Relative (not "@/"): the React Email preview server loads these files too.
+import { asLang, LANGS, type Lang } from "../i18n/lang";
 
 /**
  * All email wording in one place, German (informal "du") and English.
  * Keep sentences short; one dialect word per email at most (brand rules, doc 04).
  */
-export type Lang = "de" | "en";
-export const LANGS: readonly Lang[] = ["de", "en"];
-
-export function asLang(v: unknown): Lang {
-  return v === "en" ? "en" : "de";
-}
+export { asLang, LANGS, type Lang };
 
 export const TYPE_LABELS: Record<Lang, Record<EventTypeValue, string>> = {
   de: {

@@ -3,20 +3,15 @@
 import Link from "next/link";
 import { useId, useState, type FormEvent } from "react";
 import { readAttribution } from "@/lib/analytics/attribution";
+import { useLang } from "@/components/i18n/LangProvider";
 import { track } from "@/lib/analytics/umami";
+import { TYPE_LABELS } from "@/lib/email/copy";
+import type { Lang } from "@/lib/i18n/lang";
 import { CONSENT_TEXT, KERBSIDE_TOPICS, STATION_TOPICS, type Topic } from "@/lib/subscriptions/topics";
 
-const LABELS: Record<Topic, string> = {
-  paper: "Papier",
-  cardboard: "Karton",
-  organic: "Bioabfall",
-  waste: "Kehricht",
-  mrh: "Mobiler Recyclinghof",
-  hazmat: "Sonderabfallmobil",
-};
 
 const DEFAULT_TOPICS: Topic[] = ["paper", "cardboard", "mrh"];
-const consentLabel = CONSENT_TEXT.de.replace(/\s*\(v\d+\)$/, "");
+const consentLabel = (lang: Lang) => CONSENT_TEXT[lang].replace(/\s*\(v\d+\)$/, "");
 
 type Status = "idle" | "sending" | "done" | "error";
 
@@ -42,9 +37,11 @@ export function SubscribeForm({
   const [topics, setTopics] = useState<Topic[]>(station ? [station.kind] : DEFAULT_TOPICS);
   const [digest, setDigest] = useState(false);
   const [consent, setConsent] = useState(false);
-  const [lang, setLang] = useState<"de" | "en">(() =>
-    typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("en") ? "en" : "de",
-  );
+  const { lang: siteLang, t: ui } = useLang();
+  const t = ui.subscribe;
+  // Email language: follows the site language (DE/EN toggle) until picked here.
+  const [pickedLang, setLang] = useState<Lang | null>(null);
+  const lang = pickedLang ?? siteLang;
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<Status>("idle");
 
@@ -70,6 +67,7 @@ export function SubscribeForm({
           reminders: true,
           digest,
           consent: true,
+          consentLang: siteLang,
           source,
           attribution,
           website,
@@ -92,10 +90,11 @@ export function SubscribeForm({
   if (status === "done") {
     return (
       <div data-testid="subscribe-done" className="rounded-2xl bg-mint px-4 py-3 text-sm text-ink">
-        <p className="font-bold">Fast geschafft!</p>
+        <p className="font-bold">{t.doneTitle}</p>
         <p className="mt-0.5">
-          Wir haben dir eine E-Mail an <span className="font-bold">{email}</span> geschickt. Bitte bestätige den Link
-          darin, erst dann erinnern wir dich.
+          {t.doneBefore}
+          <span className="font-bold">{email}</span>
+          {t.doneAfter}
         </p>
       </div>
     );
@@ -113,9 +112,9 @@ export function SubscribeForm({
         className="group flex w-full items-center gap-3 rounded-2xl bg-orange/10 px-3 py-2.5 text-left text-ink ring-1 ring-orange/30 transition hover:bg-orange/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange active:scale-[0.99]"
       >
         <span className="min-w-0 flex-1">
-          <span className="block leading-tight font-bold">Erinnerung per E-Mail</span>
+          <span className="block leading-tight font-bold">{t.openTitle}</span>
           <span className="mt-0.5 block text-sm text-ink/65">
-            {station ? `Am Vorabend jedes Termins hier` : `Am Vorabend von Abfuhr und Recyclinghof in ${plz}`}
+            {station ? t.openStation : t.openPlz(plz!)}
           </span>
         </span>
         <span
@@ -134,23 +133,23 @@ export function SubscribeForm({
       data-testid="subscribe-form"
       onSubmit={submit}
       className="space-y-3 rounded-2xl bg-white px-3 py-3 text-sm text-ink ring-1 ring-orange/30"
-      aria-label="Erinnerung per E-Mail"
+      aria-label={t.openTitle}
     >
       <p className="flex items-center gap-2 font-bold">
         <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-orange text-white">
           <BellIcon still />
         </span>
-        Erinnerung per E-Mail {station ? `für ${station.name}` : `für PLZ ${plz}`}
+        {station ? t.formTitleStation(station.name) : t.formTitlePlz(plz!)}
       </p>
 
       {!station && (
         <fieldset>
-          <legend className="mb-1 text-xs font-bold tracking-wide text-ink/60 uppercase">Woran erinnern?</legend>
+          <legend className="mb-1 text-xs font-bold tracking-wide text-ink/60 uppercase">{t.what}</legend>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-            {topicOptions.map((t) => (
-              <label key={t} className="flex items-center gap-2">
-                <input type="checkbox" checked={topics.includes(t)} onChange={() => toggle(t)} className="accent-orange" />
-                {LABELS[t]}
+            {topicOptions.map((k) => (
+              <label key={k} className="flex items-center gap-2">
+                <input type="checkbox" checked={topics.includes(k)} onChange={() => toggle(k)} className="accent-orange" />
+                {TYPE_LABELS[siteLang][k]}
               </label>
             ))}
           </div>
@@ -159,12 +158,12 @@ export function SubscribeForm({
 
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={digest} onChange={(e) => setDigest(e.target.checked)} className="accent-orange" />
-        Zusätzlich: Wochenübersicht am Sonntagabend
+        {t.digest}
       </label>
 
       <div className="flex gap-2">
         <label htmlFor={`${id}-email`} className="sr-only">
-          E-Mail-Adresse
+          {t.email}
         </label>
         <input
           id={`${id}-email`}
@@ -172,13 +171,13 @@ export function SubscribeForm({
           required
           autoComplete="email"
           inputMode="email"
-          placeholder="deine@email.ch"
+          placeholder={t.emailPlaceholder}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="min-w-0 flex-1 rounded-xl border border-ink/15 px-3 py-2 text-base"
         />
         <select
-          aria-label="Sprache der E-Mails"
+          aria-label={t.emailLang}
           value={lang}
           onChange={(e) => setLang(e.target.value === "en" ? "en" : "de")}
           className="rounded-xl border border-ink/15 bg-white px-2 text-sm"
@@ -209,16 +208,16 @@ export function SubscribeForm({
           className="mt-0.5 accent-orange"
         />
         <span>
-          {consentLabel}{" "}
+          {consentLabel(siteLang)}{" "}
           <Link href="/datenschutz" className="underline" target="_blank">
-            Datenschutz
+            {t.privacy}
           </Link>
         </span>
       </label>
 
       {status === "error" && (
         <p role="alert" className="text-sm font-bold text-orange">
-          Das hat nicht geklappt. Bitte versuch es nochmals.
+          {t.error}
         </p>
       )}
 
@@ -228,10 +227,10 @@ export function SubscribeForm({
           disabled={status === "sending" || !topics.length || !consent}
           className="rounded-xl bg-orange px-4 py-2 font-bold text-white disabled:opacity-50"
         >
-          {status === "sending" ? "Sende …" : "Erinnere mich"}
+          {status === "sending" ? t.sending : t.submit}
         </button>
         <button type="button" onClick={() => setOpen(false)} className="text-sm text-ink/60 underline">
-          Abbrechen
+          {t.cancel}
         </button>
       </div>
     </form>

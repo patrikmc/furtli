@@ -17,6 +17,7 @@ import type { AreaGeometry } from "geo";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import type { KreisCollection, StationCollection } from "@/lib/geo/types";
+import { useLang } from "@/components/i18n/LangProvider";
 import { ZH_BOUNDS } from "@/lib/geo/kreis";
 import { DATA_ATTRIBUTION } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
@@ -110,6 +111,7 @@ export default function ZurichMap({
   hash = false,
   showNavigation = true,
 }: ZurichMapProps) {
+  const { t } = useLang();
   const [font, setFont] = useState<string[] | null>(null);
   // Our sources mount only once icons are registered, so markers never
   // reference a missing image.
@@ -245,13 +247,13 @@ export default function ZurichMap({
         >
           {pin.source === "gps" ? (
             <span
-              aria-label="Dein Standort"
+              aria-label={t.map.pinGps}
               data-testid="search-pin"
               className="block h-4 w-4 rounded-full border-[3px] border-white bg-[#2563EB] shadow-[0_0_0_6px_rgba(37,99,235,0.2)]"
             />
           ) : (
             <svg
-              aria-label="Gewählter Punkt (verschiebbar)"
+              aria-label={t.map.pinMap}
               data-testid="search-pin"
               width="30"
               height="40"
