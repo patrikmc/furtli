@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "email:dev": "email dev --dir emails --port 3001",
-    "subscriber": "tsx scripts/subscriber.ts"
+    "subscriber": "tsx scripts/subscriber.ts",
+    "attribution": "tsx scripts/attribution.ts"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",

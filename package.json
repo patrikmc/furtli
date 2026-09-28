@@ -21,7 +21,8 @@
     "db:reset": "pnpm --filter db reset",
     "ingest": "pnpm --filter ingest ingest",
     "ingest:dry": "pnpm --filter ingest ingest --dry-run",
-    "subscriber": "pnpm --filter web subscriber"
+    "subscriber": "pnpm --filter web subscriber",
+    "attribution": "pnpm --filter web attribution"
   },
   "dependencies": {
     "@neon/config": "^1.7.3",

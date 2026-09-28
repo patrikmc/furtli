@@ -79,7 +79,7 @@ To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOri
 ### Where visitors come from
 
 - **Umami** (cookieless, no consent banner) loads wherever `NEXT_PUBLIC_UMAMI_WEBSITE_ID` is set — production, staging and local dev (pre-launch, test visits are counted on purpose; clear the data or start a fresh website in Umami before launch). `NEXT_PUBLIC_UMAMI_DOMAINS` decides which hostnames count. **Exclude your own devices:** open `https://furtli.ch/?umami=off` once in each browser (`?umami=on` to undo). Before anything is sent, a small filter (`lib/analytics/umami.ts`) removes every query parameter except the UTM tags and area filters (`plz`, `kreis`, `station`, `scope`, `r`), so a tapped home location (`?at=`) never reaches Umami.
-- **UTM links** for every post, QR card and email: `?utm_source=instagram&utm_medium=reel&utm_campaign=w01-launch&utm_content=p014-reel-sofa` — `utm_content` is the post ID from the campaign registry, `utm_term` an optional A/B variant (convention in the analytics tracking plan). Umami's *UTM* and *Referrers* reports show visits per source.
+- **UTM links** for every post, QR card and email: `?utm_source=reddit&utm_medium=community&utm_campaign=w2-launch&utm_content=p08-reddit-launch`. `utm_source` = channel (instagram, tiktok, whatsapp, reddit, fb-kreis4, qr-mrh-stauffacher, …), `utm_medium` = social / community / email / print / paid / referral, `utm_campaign` = posting week (w1-softlaunch … w6-review) or always-on, `utm_content` = post ID, `utm_term` = optional A/B variant. Every post and its ready-made tagged link lives in the **Campaign registry** (Notion, Furtli HQ). Automatic emails tag their own links (`lib/email/links.ts`). Umami's *UTM* and *Referrers* reports show visits per source.
 - **Sign-ups are attributed too:** the first page of a visit stores its UTM tags and referring site in `sessionStorage`; the subscribe form sends them along and they're saved on the `subscriber` row (`utm_*`, `referrer`, `landing_path`, `signup_source`). Subscribers per channel:
 
   ```sql
@@ -88,7 +88,7 @@ To test on your phone on the same Wi-Fi, add your Mac's LAN IP to `allowedDevOri
   from subscriber group by 1, 2 order by active desc;
   ```
 
-  Subscribers per post (last 7 days; `utm_content` = post ID):
+  **Saturday check:** `pnpm attribution` (last 7 days; `--days 30`, `--json`; against Neon: `DATABASE_URL=<url> pnpm attribution`) prints sign-ups, confirmations, unsubscribes, unconfirmed after 48 h, and sign-ups per channel and per post ID. Counts only, no addresses. The same per post in SQL (`utm_content` = post ID):
 
   ```sql
   select utm_content as post_id, coalesce(utm_source, referrer, 'direct') as source, utm_campaign,
