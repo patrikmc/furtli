@@ -12,11 +12,12 @@ import { HTML_LANG } from "@/lib/i18n/lang";
 import { getLang } from "@/lib/i18n/server";
 import { ui } from "@/lib/i18n/ui";
 import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled } from "@/lib/analytics/umami";
+import { SpeedInsightsClient } from "@/components/analytics/SpeedInsightsClient";
 
-// Umami is only loaded on production (APP_ENV=production) with a website id
-// configured; staging, previews, dev and tests send nothing (UMAMI_DEV=1 to
-// test locally). NEXT_PUBLIC_UMAMI_DOMAINS additionally limits counting to the
-// real domain(s).
+
+// Umami is loaded wherever a website id is configured (production, staging,
+// local dev); tests and CI have none. NEXT_PUBLIC_UMAMI_DOMAINS limits which
+// hostnames are counted.
 const umamiId = umamiEnabled() ? process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID : undefined;
 const umamiSrc = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL || "https://cloud.umami.is/script.js";
 const umamiDomains = process.env.NEXT_PUBLIC_UMAMI_DOMAINS;
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <LangProvider initialLang={lang}>{children}</LangProvider>
         <AttributionCapture />
+        <SpeedInsightsClient />
         {umamiId && (
           <>
             {/* ?umami=off opt-out, and strips the tapped location (?at=) etc. from what Umami receives; must exist before the tracker runs. */}

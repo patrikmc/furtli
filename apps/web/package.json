@@ -20,6 +20,7 @@
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
     "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@vercel/speed-insights": "^2.0.0",
     "db": "workspace:*",
     "geo": "workspace:*",
     "ingest": "workspace:*",
