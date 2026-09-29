@@ -11,7 +11,7 @@ import { LangProvider } from "@/components/i18n/LangProvider";
 import { HTML_LANG } from "@/lib/i18n/lang";
 import { getLang } from "@/lib/i18n/server";
 import { ui } from "@/lib/i18n/ui";
-import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled } from "@/lib/analytics/umami";
+import { UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled, umamiScriptAttrs } from "@/lib/analytics/umami";
 import { SpeedInsightsClient } from "@/components/analytics/SpeedInsightsClient";
 
 
@@ -48,14 +48,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Script id="umami-before-send" strategy="beforeInteractive">
               {UMAMI_OPT_OUT_JS + UMAMI_BEFORE_SEND_JS}
             </Script>
-            <Script
-              src={umamiSrc}
-              strategy="afterInteractive"
-              data-website-id={umamiId}
-              data-before-send={UMAMI_BEFORE_SEND_FN}
-              data-exclude-hash="true"
-              {...(umamiDomains ? { "data-domains": umamiDomains } : {})}
-            />
+            {/* One tracker tag: pageviews, events and Core Web Vitals (data-performance). */}
+            <Script src={umamiSrc} strategy="afterInteractive" {...umamiScriptAttrs(umamiId, umamiDomains)} />
           </>
         )}
       </body>

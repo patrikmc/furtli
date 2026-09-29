@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { acquisitionProps, channelOf, parseAttribution, visitSourceProps } from "./attribution";
-import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled } from "./umami";
+import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled, umamiScriptAttrs } from "./umami";
 
-type Payload = { url?: string; referrer?: string; website?: string };
+type Payload = { url?: string; referrer?: string; website?: string; [metric: string]: unknown };
 
 function beforeSend(): (type: string, p: Payload) => Payload {
   const w: Record<string, unknown> = {};
@@ -31,6 +31,17 @@ describe("Umami before-send filter", () => {
   it("cuts referrers to origin and path", () => {
     const p = beforeSend()("pageview", { url: "/", referrer: "https://www.reddit.com/r/zurich/comments/abc?share=1" });
     expect(p.referrer).toBe("https://www.reddit.com/r/zurich/comments/abc");
+  });
+
+  it("also filters Core Web Vitals payloads (type performance) and keeps the metrics", () => {
+    const p = beforeSend()("performance", {
+      url: "/?at=47.37350,8.52870&station=mrh-12",
+      lcp: 1840,
+      inp: 96,
+      cls: 0.02,
+    } as Payload);
+    expect(p.url).toBe("/?station=mrh-12");
+    expect(p).toMatchObject({ lcp: 1840, inp: 96, cls: 0.02 });
   });
 
   it("never throws on odd payloads", () => {
@@ -84,6 +95,20 @@ describe("Umami opt-out (?umami=off)", () => {
     expect(run("?utm_source=instagram", { keep: "x" })).toEqual({ keep: "x" });
     expect(run("?umami=offline")).toEqual({});
     expect(() => new Function("window", UMAMI_OPT_OUT_JS)({})).not.toThrow();
+  });
+});
+
+describe("umamiScriptAttrs", () => {
+  it("turns on Core Web Vitals and keeps the privacy filter on the one tracker tag", () => {
+    const a = umamiScriptAttrs("abc");
+    expect(a["data-website-id"]).toBe("abc");
+    expect(a["data-performance"]).toBe("true");
+    expect(a["data-before-send"]).toBe(UMAMI_BEFORE_SEND_FN);
+    expect(a["data-exclude-hash"]).toBe("true");
+    expect(a).not.toHaveProperty("data-domains");
+  });
+  it("limits hostnames when domains are set", () => {
+    expect(umamiScriptAttrs("abc", "furtli.ch,www.furtli.ch")["data-domains"]).toBe("furtli.ch,www.furtli.ch");
   });
 });
 

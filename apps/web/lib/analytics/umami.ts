@@ -36,6 +36,29 @@ export const UMAMI_ALLOWED_PARAMS = [
 export const UMAMI_BEFORE_SEND_JS = `window.${UMAMI_BEFORE_SEND_FN}=function(type,payload){try{var keep=${JSON.stringify(UMAMI_ALLOWED_PARAMS)};if(payload&&typeof payload.url==="string"){var h=payload.url.indexOf("#");var u=h>=0?payload.url.slice(0,h):payload.url;var q=u.indexOf("?");if(q>=0){var src=new URLSearchParams(u.slice(q+1));var out=new URLSearchParams();src.forEach(function(v,k){if(keep.indexOf(k)>=0)out.append(k,v)});var s=out.toString();u=u.slice(0,q)+(s?"?"+s:"")}payload.url=u}if(payload&&typeof payload.referrer==="string"&&payload.referrer){try{var r=new URL(payload.referrer);payload.referrer=r.origin+r.pathname}catch(e){payload.referrer=""}}}catch(e){}return payload};`;
 
 /**
+ * Attributes for the single Umami <script> tag (app/layout.tsx). One tag only:
+ * a second copy would count every pageview twice and skip the privacy filter.
+ *
+ * data-performance="true" (tracker v3.1+) collects Core Web Vitals from real
+ * visitors: LCP, INP, CLS, FCP, TTFB, shown in Umami → Performance (p50/p75/p95,
+ * by page and by device/browser). The measurements go through the same
+ * before-send filter (type "performance"), so ?at= is dropped from them too.
+ * Caveat: the tracker closes a measurement on every URL change, and the map
+ * rewrites the URL on each search / station tap, so on the map INP and CLS
+ * cover only the stretch until the next interaction. LCP, FCP and TTFB are
+ * unaffected; Vercel Speed Insights stays the reference for INP.
+ */
+export function umamiScriptAttrs(websiteId: string, domains?: string): Record<string, string> {
+  return {
+    "data-website-id": websiteId,
+    "data-before-send": UMAMI_BEFORE_SEND_FN,
+    "data-exclude-hash": "true",
+    "data-performance": "true",
+    ...(domains ? { "data-domains": domains } : {}),
+  };
+}
+
+/**
  * Opt-out for your own devices: open any page once with `?umami=off` and this
  * browser stops being counted (Umami honours localStorage "umami.disabled").
  * `?umami=on` counts it again. Runs before the tracker loads, so the opt-out
