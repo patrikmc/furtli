@@ -1,0 +1,173 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.51144, 47.38489] },
+      "properties": {
+        "id": "site-spross-recyclingwerk-zuerich",
+        "kind": "recyclinghof",
+        "name": "Recyclingwerk Zürich (Spross)",
+        "address": "Hohlstrasse 330",
+        "kreis": 4,
+        "plz": "8004",
+        "place": "Zürich",
+        "operator": "Spross",
+        "materials": ["construction"],
+        "hours": { "mo": "07:00–18:00", "di": "07:00–18:00", "mi": "07:00–18:00", "do": "07:00–18:00", "fr": "07:00–18:00", "sa": "07:00–12:00" },
+        "fee": { "de": "Einfahrt CHF 20 (Mo–Fr), Samstag gratis; Material nach Preisliste.", "en": "Entry CHF 20 (Mon–Fri), free on Saturdays; materials per price list." },
+        "website": "https://www.spross.com/entsorgungsstellen",
+        "verified": "2026-09-29"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.61197, 47.40934] },
+      "properties": {
+        "id": "site-muelliland-wallisellen",
+        "kind": "recyclinghof",
+        "name": "Mülliland Wallisellen",
+        "address": "Kriesbachstrasse 2",
+        "kreis": 0,
+        "plz": "8304",
+        "place": "Wallisellen",
+        "operator": "Remondis",
+        "materials": ["metal", "paper", "cardboard", "batteries", "electronics", "appliances", "glass", "plastics", "lamps", "construction", "textiles", "wood", "bulky", "tyres"],
+        "hours": { "mo": "07:30–12:00, 13:00–17:00", "di": "07:30–12:00, 13:00–17:00", "mi": "07:30–12:00, 13:00–17:00", "do": "07:30–12:00, 13:00–17:00", "fr": "07:30–12:00, 13:00–17:00", "sa": "09:00–16:00" },
+        "fee": { "de": "Viele Wertstoffe in Haushaltsmengen gratis; Sperrgut, Bauschutt, Holz u. a. kostenpflichtig. 24-h-Selbstbedienung (Mülli-Card oder CHF 5).", "en": "Many recyclables free in household quantities; bulky waste, rubble, wood etc. charged. 24-h self-service (Mülli-Card or CHF 5)." },
+        "website": "https://www.remondis-recycling.ch/sammelstellen/muelliland-wallisellen/",
+        "verified": "2026-09-29"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.4341, 47.44668] },
+      "properties": {
+        "id": "site-lopatex-daellikon",
+        "kind": "recyclinghof",
+        "name": "Recyclingpark Lopatex",
+        "address": "Lindenstrasse 3",
+        "kreis": 0,
+        "plz": "8108",
+        "place": "Dällikon",
+        "operator": "Lopatex AG (Paprec)",
+        "materials": ["paper", "cardboard", "metal", "glass", "pet", "batteries", "electronics", "appliances", "lamps", "hazardous", "bulky"],
+        "hours": { "mi": "16:00–19:00", "sa": "08:00–14:00" },
+        "fee": { "de": "Wertstoffe aus Haushalten gratis; übriges nach Preisliste. Sonderabfall nur in Kleinmengen.", "en": "Household recyclables free; other items per price list. Hazardous waste in small quantities only." },
+        "website": "https://www.paprec.ch/zuerich-recyclingpark/",
+        "verified": "2026-09-29"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.5291, 47.31768] },
+      "properties": {
+        "id": "site-entsorgungspark-adliswil",
+        "kind": "recyclinghof",
+        "name": "Entsorgungspark Adliswil",
+        "address": "Tüfistrasse 2",
+        "kreis": 0,
+        "plz": "8134",
+        "place": "Adliswil",
+        "materials": ["metal", "capsules", "electronics", "glass", "construction", "batteries", "cardboard", "appliances", "lamps", "oil", "paper", "pet", "bulky", "styrofoam", "textiles"],
+        "hours": { "mo": "13:30–17:00", "di": "09:00–12:00, 13:30–17:00", "mi": "13:30–19:00", "do": "09:00–12:00, 13:30–17:00", "fr": "13:30–19:00", "sa": "08:30–14:00" },
+        "fee": { "de": "Benützungsgebühr CHF 5; gebührenpflichtiger Abfall bis 12,5 kg CHF 5, darüber CHF 0.40/kg.", "en": "Usage fee CHF 5; chargeable waste up to 12.5 kg CHF 5, above that CHF 0.40/kg." },
+        "website": "https://www.entsorgungadliswil.ch/entsorgungsparks",
+        "verified": "2026-09-29"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.60924, 47.24883] },
+      "properties": {
+        "id": "site-entsorgungspark-horgen",
+        "kind": "recyclinghof",
+        "name": "Entsorgungspark Horgen (KVA)",
+        "address": "Zugerstrasse 165",
+        "kreis": 0,
+        "plz": "8810",
+        "place": "Horgen",
+        "materials": ["metal", "batteries", "electronics", "glass", "cardboard", "textiles", "tyres", "bulky"],
+        "hours": { "mo": "07:00–11:45, 13:00–16:45", "di": "07:00–11:45, 13:00–16:45", "mi": "07:00–11:45, 13:00–16:45", "do": "07:00–11:45, 13:00–16:45", "fr": "07:00–11:45, 13:00–16:45", "sa": "08:00–11:45" },
+        "fee": { "de": "Benützungsgebühr CHF 5; gebührenpflichtiger Abfall bis 180 kg CHF 30; Reifen CHF 5–10.", "en": "Usage fee CHF 5; chargeable waste up to 180 kg CHF 30; tyres CHF 5–10." },
+        "website": "https://www.entsorgunghorgen.ch/entsorgungsparks",
+        "verified": "2026-09-29"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.6451, 47.2375] },
+      "properties": {
+        "id": "site-entsorgungspark-waedenswil",
+        "kind": "recyclinghof",
+        "name": "Entsorgungspark Wädenswil",
+        "address": "Rütibüelstrasse 3",
+        "kreis": 0,
+        "plz": "8820",
+        "place": "Wädenswil",
+        "materials": ["metal", "capsules", "electronics", "glass", "construction", "batteries", "cardboard", "appliances", "plastics", "lamps", "oil", "paper", "pet", "bulky", "styrofoam", "textiles"],
+        "hours": { "mo": "09:30–12:00, 13:15–18:00", "di": "09:30–12:00, 13:15–18:00", "mi": "09:30–12:00, 13:15–18:00", "do": "09:30–12:00, 13:15–18:00", "fr": "09:30–12:00, 13:15–18:00", "sa": "08:30–15:00" },
+        "fee": { "de": "Benützungsgebühr CHF 5; gebührenpflichtiger Abfall bis 12,5 kg CHF 5, darüber CHF 0.40/kg; Altöl bis 20 l gratis.", "en": "Usage fee CHF 5; chargeable waste up to 12.5 kg CHF 5, above that CHF 0.40/kg; used oil up to 20 l free." },
+        "website": "https://www.entsorgungwaedenswil.ch/entsorgungsparks",
+        "verified": "2026-09-29"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.39794, 47.40179] },
+      "properties": {
+        "id": "site-dietikon-zelgliplatz",
+        "kind": "recyclinghof",
+        "name": "Hauptsammelstelle Zelgliplatz",
+        "address": "Oberdorfstrasse (Höhe Nr. 30)",
+        "kreis": 0,
+        "plz": "8953",
+        "place": "Dietikon",
+        "operator": "Stadt Dietikon",
+        "materials": ["oil", "batteries", "styrofoam", "glass", "construction", "capsules", "cardboard", "metal", "paper", "pet", "textiles"],
+        "hours": { "mo": "13:15–17:00", "di": "08:00–12:00, 13:15–17:00", "mi": "13:15–17:00", "do": "13:15–17:00", "fr": "13:15–18:30", "sa": "08:00–16:00" },
+        "access": { "de": "Gemeindesammelstelle von Dietikon; ob Auswärtige sie nutzen dürfen, ist nicht publiziert.", "en": "Dietikon's municipal collection point; whether non-residents may use it isn't published." },
+        "website": "https://www.dietikon.ch/abfallorte/1690",
+        "verified": "2026-09-29"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.41351, 47.41273] },
+      "properties": {
+        "id": "site-geroldswil-giessacker",
+        "kind": "recyclinghof",
+        "name": "Wertstoffsammelstelle Giessacker",
+        "address": "Giessackerstrasse",
+        "kreis": 0,
+        "plz": "8951",
+        "place": "Geroldswil / Fahrweid",
+        "operator": "Gemeinde Geroldswil",
+        "materials": ["glass", "wood", "metal", "paper", "cardboard", "textiles", "electronics", "tyres", "styrofoam", "oil", "batteries", "construction", "lamps", "capsules"],
+        "hours": { "mo": "07:00–18:00", "di": "07:00–18:00", "mi": "07:00–18:00", "do": "07:00–18:00", "fr": "07:00–18:00", "sa": "07:00–16:00" },
+        "access": { "de": "Nur für Einwohner von Geroldswil und Fahrweid, mit Entsorgungspass. Betreute Annahme (Altöl, Batterien, Grubengut …) Mo–Fr 14–18, Sa 9–13 Uhr.", "en": "Residents of Geroldswil and Fahrweid only, with a disposal pass. Staffed drop-off (used oil, batteries, rubble …) Mon–Fri 14–18, Sat 9–13." },
+        "website": "https://www.geroldswil.ch/raumumwelt/umwelt/abfall/oeffnungszeiten-wertstoffsammelstelle.html/490",
+        "verified": "2026-09-29"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.38112, 47.41543] },
+      "properties": {
+        "id": "site-recycling-paradies-spreitenbach",
+        "kind": "recyclinghof",
+        "name": "Recycling-Paradies Spreitenbach",
+        "address": "Aspstrasse 3",
+        "kreis": 0,
+        "plz": "8957",
+        "place": "Spreitenbach AG",
+        "operator": "Recycling-Paradies AG",
+        "materials": ["bulky", "metal", "batteries", "electronics", "glass", "appliances", "wood", "capsules", "cardboard", "plastics", "lamps", "paper", "pet", "construction", "textiles"],
+        "hours": { "mo": "08:00–18:00", "di": "08:00–18:00", "mi": "08:00–18:00", "do": "08:00–18:00", "fr": "08:00–18:00", "sa": "08:00–18:00" },
+        "fee": { "de": "Kostenpflichtig nach Preisliste.", "en": "Charged per price list." },
+        "website": "https://recycling-paradies.ch/standort/spreitenbach/",
+        "verified": "2026-09-29"
+      }
+    }
+  ]
+}

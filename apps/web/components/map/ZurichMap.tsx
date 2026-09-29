@@ -18,7 +18,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import type { KreisCollection, StationCollection } from "@/lib/geo/types";
 import { useLang } from "@/components/i18n/LangProvider";
-import { ZH_BOUNDS } from "@/lib/geo/kreis";
+import { MAP_BOUNDS } from "@/lib/geo/kreis";
 import { DATA_ATTRIBUTION } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
 import { registerStationIcons } from "./icons";
@@ -187,7 +187,7 @@ export default function ZurichMap({
       initialViewState={initialView}
       minZoom={11}
       maxZoom={18}
-      maxBounds={[ZH_BOUNDS[0] - 0.05, ZH_BOUNDS[1] - 0.03, ZH_BOUNDS[2] + 0.05, ZH_BOUNDS[3] + 0.03]}
+      maxBounds={MAP_BOUNDS}
       mapStyle={styleUrl}
       style={{ position: "absolute", inset: 0 }}
       attributionControl={false}

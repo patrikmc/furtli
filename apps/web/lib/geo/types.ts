@@ -10,9 +10,10 @@ export const STATION_KINDS = ["mrh", "hazmat", "sammelstelle", "recyclinghof"] a
 export type StationKind = (typeof STATION_KINDS)[number];
 
 /**
- * What a Sammelstelle takes (Open Data Zürich flags glas / metall / oel / textilien).
- * Only Sammelstellen carry per-site materials; the city sends glass, small
- * metal, oil and textiles there rather than to the Recyclinghöfe.
+ * Materials the material filter offers (Open Data Zürich flags glas / metall /
+ * oel / textilien on Sammelstellen). The city's Recyclinghöfe and the MRH
+ * carry no per-site list; curated sites use a longer vocabulary (see
+ * `materials` in lib/i18n/ui.ts), of which these four are a subset.
  */
 export const MATERIALS = ["glass", "metal", "oil", "textiles"] as const;
 export type Material = (typeof MATERIALS)[number];
@@ -29,7 +30,7 @@ export interface StationProps {
   kreis: number;
   /** Postcode where the station is. */
   plz: string;
-  /** Sammelstellen: glass, metal, oil, textiles. */
+  /** What the site takes: Sammelstellen glass/metal/oil/textiles; curated sites more (keys in ui.ts `materials`). */
   materials?: string[];
   /** Upcoming dates (ISO, soonest first, max 3). MRH and hazmat only. */
   nextDates?: string[];
@@ -39,6 +40,27 @@ export interface StationProps {
   hours?: Record<string, string> | null;
   /** True for hand-written seed data; the UI shows a "Beispieldaten" badge. */
   placeholder?: boolean;
+
+  // ---- Hand-curated sites (lib/geo/data/stations.curated.json) -------------
+  // Private recycling centres and neighbouring towns' sites, which aren't in
+  // the city's open data. `kreis` is 0 for sites outside the city.
+  /** Town, shown instead of the Kreis for sites outside the city ("Adliswil"). */
+  place?: string;
+  /** Who runs it, when that isn't obvious from the name ("Remondis"). */
+  operator?: string;
+  /** Fees, per language. Absent = none published. */
+  fee?: LocalizedText;
+  /** Who may use it, if that's restricted or unclear, per language. */
+  access?: LocalizedText;
+  /** Operator's page (hours, prices). Always https. */
+  website?: string;
+  /** ISO date we last checked the details by hand. */
+  verified?: string;
+}
+
+export interface LocalizedText {
+  de: string;
+  en: string;
 }
 
 export type StationFeature = Feature<Point, StationProps>;

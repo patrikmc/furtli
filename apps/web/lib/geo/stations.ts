@@ -29,8 +29,20 @@ function isStationProps(p: unknown): p is StationProps {
     (o.nextDates === undefined ||
       (Array.isArray(o.nextDates) &&
         o.nextDates.length <= 3 &&
-        o.nextDates.every((d) => typeof d === "string" && ISO_DATE.test(d))))
+        o.nextDates.every((d) => typeof d === "string" && ISO_DATE.test(d)))) &&
+    (o.place === undefined || typeof o.place === "string") &&
+    (o.operator === undefined || typeof o.operator === "string") &&
+    (o.fee === undefined || isLocalized(o.fee)) &&
+    (o.access === undefined || isLocalized(o.access)) &&
+    // Rendered as a link: only https, never javascript: or similar.
+    (o.website === undefined || (typeof o.website === "string" && /^https:\/\/[^\s]+$/.test(o.website))) &&
+    (o.verified === undefined || (typeof o.verified === "string" && ISO_DATE.test(o.verified)))
   );
+}
+
+function isLocalized(v: unknown): boolean {
+  const o = v as Record<string, unknown> | null;
+  return !!o && typeof o === "object" && typeof o.de === "string" && typeof o.en === "string";
 }
 
 function isStationFeature(f: unknown): f is StationFeature {

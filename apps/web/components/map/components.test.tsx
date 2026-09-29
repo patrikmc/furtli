@@ -147,7 +147,7 @@ describe("NearbyPanel", () => {
       />,
     );
     expect(screen.getByRole("tab", { name: /Orte/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("list-title")).toHaveTextContent("Glas: Sammelstellen in der Nähe");
+    expect(screen.getByTestId("list-title")).toHaveTextContent("Glas: Entsorgungsorte in der Nähe");
     expect(within(screen.getByTestId("place-groups")).getByText("Idaplatz")).toBeInTheDocument();
   });
 

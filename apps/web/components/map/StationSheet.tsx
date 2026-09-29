@@ -12,6 +12,12 @@ import { Sheet } from "./Sheet";
 
 export { formatDate };
 
+/** "29.9.2026" / "29/09/2026". */
+function fullDate(iso: string, lang: "de" | "en"): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString(lang === "de" ? "de-CH" : "en-GB", { timeZone: "UTC" });
+}
+
 /** Station details. Opened from the map or from the nearby list (then with a back button). */
 export function StationSheet({
   station,
@@ -46,7 +52,9 @@ export function StationSheet({
           <KindDot kind={p.kind} />
           <span>{kindLabel(p.kind, lang)}</span>
           <span aria-hidden>·</span>
-          <span>{p.kreis ? t.anchor.kreis(p.kreis) : t.station.outside} · {p.plz}</span>
+          <span>
+            {p.kreis ? t.anchor.kreis(p.kreis) : (p.place ?? t.station.outside)} · {p.plz}
+          </span>
           {distance !== undefined && (
             <>
               <span aria-hidden>·</span>
@@ -54,6 +62,15 @@ export function StationSheet({
             </>
           )}
         </p>
+
+        {p.operator && <p className="text-sm text-ink/70">{t.station.operator(p.operator)}</p>}
+
+        {p.access && (
+          <div className="rounded-xl bg-sun/25 px-3 py-2 text-sm text-ink" data-testid="station-access">
+            <span className="font-bold">{t.station.access}: </span>
+            {p.access[lang]}
+          </div>
+        )}
 
         {official && (
           <p className="inline-block rounded-full bg-mint px-3 py-1 text-xs font-bold text-moss">
@@ -86,7 +103,10 @@ export function StationSheet({
         {weekly.length > 0 && (
           <div>
             <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">{t.station.hours}</h3>
-            <ul className="mt-2 grid grid-cols-2 gap-1 text-sm text-ink/80">
+            {/* Split hours ("07:00–11:45, 13:00–16:45") need a full row per day on phones. */}
+            <ul
+              className={`mt-2 grid gap-1 text-sm text-ink/80 ${weekly.some(([, h]) => h.includes(",")) ? "grid-cols-1 sm:grid-cols-2 sm:gap-x-4" : "grid-cols-2"}`}
+            >
               {weekly.map(([d, time]) => (
                 <li key={d}>
                   <span className="inline-block w-7 font-bold">{dayLabel(d, lang)}</span> {time}
@@ -108,6 +128,28 @@ export function StationSheet({
             </ul>
           </div>
         ) : null}
+
+        {p.fee && (
+          <div>
+            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">{t.station.fee}</h3>
+            <p className="mt-1 text-sm text-ink/80">{p.fee[lang]}</p>
+          </div>
+        )}
+
+        {p.website && (
+          <a
+            href={p.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-umami-event="site_website"
+            data-umami-event-station={p.id}
+            className="block rounded-2xl border border-ink/15 bg-white px-4 py-3 text-center text-sm font-bold text-ink hover:bg-mint"
+          >
+            {t.station.website} ↗
+          </a>
+        )}
+
+        {p.verified && <p className="text-xs text-ink/50">{t.station.verified(fullDate(p.verified, lang))}</p>}
 
         {(p.kind === "mrh" || p.kind === "hazmat") && !p.placeholder && (
           <SubscribeForm key={p.id} plz={null} station={{ id: p.id, name: p.name, kind: p.kind }} source="station" />

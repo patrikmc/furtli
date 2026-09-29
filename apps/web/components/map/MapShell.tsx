@@ -9,7 +9,6 @@ import {
   circlePolygon,
   distanceMeters,
   distanceToArea,
-  kreisForPoint,
   nearby,
   resolveAnchor,
 } from "geo";
@@ -20,7 +19,7 @@ import { track, trackFirstAction } from "@/lib/analytics/umami";
 import { type Radius, type SearchState, writeSearchParams } from "@/lib/geo/anchor";
 import { fitCamera } from "@/lib/geo/camera";
 import { toPoints, todayZurich } from "@/lib/geo/group";
-import { ZH_CENTER } from "@/lib/geo/kreis";
+import { ZH_CENTER, inMapBounds } from "@/lib/geo/kreis";
 import { STATION_KINDS, type Material, type PlzCalendar, type StationCollection, type StationKind } from "@/lib/geo/types";
 import { DEFAULT_BASEMAP, allBasemaps, type Basemap } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
@@ -89,11 +88,12 @@ export default function MapShell({
     () =>
       allStations && {
         type: "FeatureCollection",
-        // A material narrows everything (map, lists) to the Sammelstellen that take it.
+        // A material narrows everything (map, lists) to the places that list it
+        // (Sammelstellen and curated sites; the MRH and city Recyclinghöfe carry no list).
         features: allStations.features.filter(
           (f) =>
             kinds.includes(f.properties.kind) &&
-            (!search.material || (f.properties.kind === "sammelstelle" && !!f.properties.materials?.includes(search.material))),
+            (!search.material || !!f.properties.materials?.includes(search.material)),
         ),
       },
     [allStations, kinds, search.material],
@@ -232,16 +232,17 @@ export default function MapShell({
   const onLocate = useCallback(
     ({ lng, lat }: LocateResult) => {
       trackFirstAction("search_gps", { lang });
-      if (areas && kreisForPoint(lng, lat, areas.kreise) === null) {
+      // Anywhere on the map works (the city and the towns around it with listed sites).
+      if (!inMapBounds(lng, lat)) {
         setHint(t.map.outsideCity);
-        track("search_no_result", { by: "gps", reason: "outside_city" });
+        track("search_no_result", { by: "gps", reason: "outside_map" });
         return;
       }
       setAnchor({ type: "point", lng, lat, source: "gps" });
       track("place_search", { by: "gps" });
       flyTo(lng, lat, 14.5);
     },
-    [areas, flyTo, setAnchor, t, lang],
+    [flyTo, setAnchor, t, lang],
   );
 
   const selectStation = useCallback(

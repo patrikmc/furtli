@@ -29,6 +29,30 @@ test("map loads with brand, sample-data badge, four filter chips and the start c
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText("Stadt Zürich");
 });
 
+test("curated site outside the city: deep link, card with town, fees, website; marker is on the map", async ({ page }) => {
+  // Horgen is ~10 km south of the city: only reachable since the map bounds were widened.
+  await page.goto("/?station=site-entsorgungspark-horgen");
+  const { canvas, box } = await mapCentre(page);
+  const sheet = page.getByTestId("station-sheet");
+  await expect(sheet).toContainText("Entsorgungspark Horgen");
+  await expect(sheet).toContainText("Horgen · 8810");
+  await expect(sheet).toContainText("Kosten");
+  await expect(sheet.getByRole("link", { name: /Website/ })).toHaveAttribute("href", "https://www.entsorgunghorgen.ch/entsorgungsparks");
+  await expect(sheet.getByRole("link", { name: /Wir bringen/ })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Schliessen" }).click();
+  await expect(sheet).toBeHidden();
+  await page.waitForTimeout(300);
+  await canvas.click({ position: focusPoint(box.width, box.height) });
+  await expect(sheet).toContainText("Entsorgungspark Horgen");
+});
+
+test("residents-only site shows its access note", async ({ page }) => {
+  await page.goto("/?station=site-geroldswil-giessacker");
+  await mapCentre(page);
+  await expect(page.getByTestId("station-access")).toContainText("Nur für Einwohner von Geroldswil");
+});
+
 test("tap any point on the map: nearby list grouped by distance, pin, shareable URL", async ({ page }) => {
   await page.goto("/");
   const { canvas, centre } = await mapCentre(page);
@@ -192,14 +216,14 @@ test("postcode only, with the radius on the same row; picking one after another 
   expect((await canvas.screenshot()).equals(before)).toBe(false);
 });
 
-test("material filter: only Sammelstellen that take it, in «Orte», shareable", async ({ page }) => {
+test("material filter: only places that take it, in «Orte», shareable", async ({ page }) => {
   await page.goto("/?at=47.37350,8.52870&r=2000");
   await mapCentre(page);
   const panel = page.getByRole("dialog", { name: "Gewählter Punkt" });
   await panel.getByRole("combobox", { name: "Was möchtest du entsorgen?" }).selectOption("oil");
   await expect(page).toHaveURL(/mat=oil/);
   await expect(page.getByRole("tab", { name: /Orte/ })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByTestId("list-title")).toHaveText("Altöl: Sammelstellen in der Nähe");
+  await expect(page.getByTestId("list-title")).toHaveText("Altöl: Entsorgungsorte in der Nähe");
   const rows = page.getByTestId("place-groups").getByRole("button");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("Bullingerplatz");

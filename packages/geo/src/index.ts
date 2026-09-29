@@ -32,6 +32,22 @@ export type LngLat = { lng: number; lat: number };
 export const ZH_BOUNDS: [number, number, number, number] = [8.44, 47.315, 8.63, 47.44];
 export const ZH_CENTER = { longitude: 8.5417, latitude: 47.3769 };
 
+/**
+ * How far the map can be panned, [west, south, east, north]: the city plus
+ * the surrounding towns with curated recycling sites (Spreitenbach in the
+ * west, Wädenswil in the south, Wallisellen in the east, Dällikon in the
+ * north), with some margin. The swisstopo base map covers all of
+ * Switzerland, so this is a product choice, not a technical limit; widen it
+ * when adding sites further out (a test checks every station lies inside).
+ */
+export const MAP_BOUNDS: [number, number, number, number] = [8.3, 47.18, 8.72, 47.6];
+
+/** True if the point lies within MAP_BOUNDS. */
+export function inMapBounds(lng: number, lat: number): boolean {
+  const [w, s, e, n] = MAP_BOUNDS;
+  return lng >= w && lng <= e && lat >= s && lat <= n;
+}
+
 // ---------------------------------------------------------------------------
 // Point-in-area
 // ---------------------------------------------------------------------------

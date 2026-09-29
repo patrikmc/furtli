@@ -53,7 +53,7 @@ export function NearbyPanel({
 }) {
   const { lang, t } = useLang();
   const [tab, setTab] = useState<Tab>(material ? "places" : "dates");
-  // Picking a material jumps to «Orte»: only Sammelstellen carry materials, so «Termine» would be empty.
+  // Picking a material jumps to «Orte»: only places carry materials (no MRH dates), so «Termine» would be empty.
   const [seenMaterial, setSeenMaterial] = useState(material);
   if (seenMaterial !== material) {
     setSeenMaterial(material);
@@ -221,7 +221,9 @@ export function NearbyPanel({
                   ? (p.materials ?? []).map((m) => materialLabel(m, lang)).join(", ")
                   : p.nextDates?.find((d) => d >= today)
                     ? t.nearby.nextDate(formatDate(p.nextDates.find((d) => d >= today)!, lang))
-                    : (p.address ?? "");
+                    : // Curated sites: town (outside the city) and whether it costs.
+                      [p.kreis ? p.address : p.place, p.fee ? t.station.paid : null].filter(Boolean).join(" · ") ||
+                      (p.address ?? "");
               return (
                 <RowButton
                   active={previewId === p.id}
