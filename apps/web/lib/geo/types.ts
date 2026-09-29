@@ -9,6 +9,14 @@ export type { KreisCollection, KreisFeature, PlzCollection, PlzFeature } from "g
 export const STATION_KINDS = ["mrh", "hazmat", "sammelstelle", "recyclinghof"] as const;
 export type StationKind = (typeof STATION_KINDS)[number];
 
+/**
+ * What a Sammelstelle takes (Open Data Zürich flags glas / metall / oel / textilien).
+ * Only Sammelstellen carry per-site materials; the city sends glass, small
+ * metal, oil and textiles there rather than to the Recyclinghöfe.
+ */
+export const MATERIALS = ["glass", "metal", "oil", "textiles"] as const;
+export type Material = (typeof MATERIALS)[number];
+
 export interface StationProps {
   /** Stable slug, e.g. "mrh-stauffacher-st-jakobstrasse-29". Used in the URL (?station=). */
   id: string;

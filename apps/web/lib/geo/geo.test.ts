@@ -64,6 +64,13 @@ describe("URL search state", () => {
     });
   });
 
+  it("parses and writes a material filter; ignores unknown materials", () => {
+    const s = parseSearchParams({ plz: "8005", mat: "oil" }, CITY_PLZ);
+    expect(s.material).toBe("oil");
+    expect(writeSearchParams(new URLSearchParams(), s).toString()).toBe("plz=8005&mat=oil");
+    expect(parseSearchParams({ plz: "8005", mat: "plutonium" }, CITY_PLZ).material).toBeUndefined();
+  });
+
   it("parses postcode and Kreis anchors; nearby and 1 km by default", () => {
     expect(parseSearchParams({ plz: "8004" }, CITY_PLZ)).toEqual({
       anchor: { type: "plz", plz: "8004" },

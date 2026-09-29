@@ -21,7 +21,7 @@ import { type Radius, type SearchState, writeSearchParams } from "@/lib/geo/anch
 import { fitCamera } from "@/lib/geo/camera";
 import { toPoints, todayZurich } from "@/lib/geo/group";
 import { ZH_CENTER } from "@/lib/geo/kreis";
-import { STATION_KINDS, type PlzCalendar, type StationCollection, type StationKind } from "@/lib/geo/types";
+import { STATION_KINDS, type Material, type PlzCalendar, type StationCollection, type StationKind } from "@/lib/geo/types";
 import { DEFAULT_BASEMAP, allBasemaps, type Basemap } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
 import { HintToast, LocateButton, LocateInline, type LocateResult, useLocate } from "./LocateButton";
@@ -89,9 +89,14 @@ export default function MapShell({
     () =>
       allStations && {
         type: "FeatureCollection",
-        features: allStations.features.filter((f) => kinds.includes(f.properties.kind)),
+        // A material narrows everything (map, lists) to the Sammelstellen that take it.
+        features: allStations.features.filter(
+          (f) =>
+            kinds.includes(f.properties.kind) &&
+            (!search.material || (f.properties.kind === "sammelstelle" && !!f.properties.materials?.includes(search.material))),
+        ),
       },
-    [allStations, kinds],
+    [allStations, kinds, search.material],
   );
 
   const resolved = useMemo(
@@ -299,6 +304,12 @@ export default function MapShell({
     [lang],
   );
 
+  const setMaterial = useCallback((material: Material | null) => {
+    setSearch((s) => ({ ...s, material: material ?? undefined }));
+    setPreviewId(null);
+    track("panel_change", { control: "material", value: material ?? "all" });
+  }, []);
+
   const setRadius = useCallback((radius: Radius) => {
     setSearch((s) => ({ ...s, radius, mode: "nearby" }));
     setPreviewId(null);
@@ -408,6 +419,8 @@ export default function MapShell({
           calendar={shownCalendar}
           picker={picker}
           onRadiusChange={setRadius}
+          material={search.material ?? null}
+          onMaterialChange={setMaterial}
           previewId={previewId}
           onPreviewStation={previewStation}
           onClose={() => setAnchor(null)}

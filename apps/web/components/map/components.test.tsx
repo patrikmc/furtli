@@ -92,6 +92,8 @@ describe("NearbyPanel", () => {
         calendar={{ plz: "8004", next: { paper: ["2026-10-07"], cardboard: ["2026-10-08"] } }}
         picker={(trailing) => trailing}
         onRadiusChange={() => {}}
+        material={null}
+        onMaterialChange={() => {}}
         previewId={null}
         onPreviewStation={() => {}}
         onClose={() => {}}
@@ -121,6 +123,32 @@ describe("NearbyPanel", () => {
     expect(screen.queryByTestId("tap-again")).toBeNull();
     await userEvent.click(within(groups).getByText("Idaplatz"));
     expect(onPreview).toHaveBeenCalledWith("Idaplatz");
+  });
+
+  it("offers a material filter; picking one reports it, and a set material shows «Orte» with its title", async () => {
+    const onMaterial = vi.fn();
+    const { rerender } = renderPanel({ onMaterialChange: onMaterial });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Was möchtest du entsorgen?" }), "oil");
+    expect(onMaterial).toHaveBeenCalledWith("oil");
+    rerender(
+      <NearbyPanel
+        resolved={resolved}
+        results={results.filter((r) => r.item.f.properties.materials?.includes("glass"))}
+        radius={1000}
+        today="2026-10-01"
+        calendar={null}
+        picker={(trailing) => trailing}
+        onRadiusChange={() => {}}
+        material="glass"
+        onMaterialChange={onMaterial}
+        previewId={null}
+        onPreviewStation={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByRole("tab", { name: /Orte/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("list-title")).toHaveTextContent("Glas: Sammelstellen in der Nähe");
+    expect(within(screen.getByTestId("place-groups")).getByText("Idaplatz")).toBeInTheDocument();
   });
 
   it("shows the marked station's row as pressed, with a 'tap again' hint", async () => {

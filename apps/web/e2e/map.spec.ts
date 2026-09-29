@@ -191,3 +191,21 @@ test("postcode only, with the radius on the same row; picking one after another 
   expect(fitWarnings).toEqual([]);
   expect((await canvas.screenshot()).equals(before)).toBe(false);
 });
+
+test("material filter: only Sammelstellen that take it, in «Orte», shareable", async ({ page }) => {
+  await page.goto("/?at=47.37350,8.52870&r=2000");
+  await mapCentre(page);
+  const panel = page.getByRole("dialog", { name: "Gewählter Punkt" });
+  await panel.getByRole("combobox", { name: "Was möchtest du entsorgen?" }).selectOption("oil");
+  await expect(page).toHaveURL(/mat=oil/);
+  await expect(page.getByRole("tab", { name: /Orte/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("list-title")).toHaveText("Altöl: Sammelstellen in der Nähe");
+  const rows = page.getByTestId("place-groups").getByRole("button");
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText("Bullingerplatz");
+
+  // Back to everything.
+  await panel.getByRole("combobox", { name: "Was möchtest du entsorgen?" }).selectOption("");
+  await expect(page).not.toHaveURL(/mat=/);
+  await expect(page.getByTestId("list-title")).toHaveText("Alle Entsorgungsorte in der Nähe");
+});

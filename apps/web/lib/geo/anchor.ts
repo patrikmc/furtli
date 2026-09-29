@@ -2,6 +2,7 @@ import type { Anchor, NearbyMode, ResolvedAnchor } from "geo";
 import type { Lang } from "@/lib/i18n/lang";
 import { ui } from "@/lib/i18n/ui";
 import { parseKreisParam } from "./kreis";
+import { MATERIALS, type Material } from "./types";
 
 export const RADII = [500, 1000, 2000] as const;
 export type Radius = (typeof RADII)[number];
@@ -11,6 +12,8 @@ export interface SearchState {
   anchor: Anchor | null;
   mode: NearbyMode;
   radius: Radius;
+  /** Only Sammelstellen that take this material (&mat=oil). */
+  material?: Material;
 }
 
 type Params = Record<string, string | string[] | undefined>;
@@ -23,6 +26,7 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : u
  *   /?kreis=4                    a Kreis
  *   (&scope=area from older links is ignored: the "only this area" toggle is gone)
  *   &r=500|1000|2000             radius for "nearby" (default 1000 m)
+ *   &mat=glass|metal|oil|textiles  only Sammelstellen that take this material
  * GPS positions are never written to the URL (privacy): a shared link only
  * contains a point the user deliberately picked on the map.
  */
@@ -44,18 +48,21 @@ export function parseSearchParams(sp: Params, cityPlz: readonly string[]): Searc
   } else if (kreis) {
     anchor = { type: "kreis", kreis };
   }
-  return { anchor, mode, radius };
+  const mat = one(sp.mat);
+  const material = (MATERIALS as readonly string[]).includes(mat ?? "") ? (mat as Material) : undefined;
+  return { anchor, mode, radius, ...(material ? { material } : {}) };
 }
 
 /** Writes the search state into URLSearchParams (keeps unrelated params). */
 export function writeSearchParams(params: URLSearchParams, s: SearchState): URLSearchParams {
-  for (const k of ["at", "plz", "kreis", "scope", "r"]) params.delete(k);
+  for (const k of ["at", "plz", "kreis", "scope", "r", "mat"]) params.delete(k);
   const a = s.anchor;
   if (a?.type === "point" && a.source !== "gps") params.set("at", `${a.lat.toFixed(5)},${a.lng.toFixed(5)}`);
   if (a?.type === "plz") params.set("plz", a.plz);
   if (a?.type === "kreis") params.set("kreis", String(a.kreis));
   if (a && s.mode === "strict") params.set("scope", "area");
   if (a && s.radius !== DEFAULT_RADIUS) params.set("r", String(s.radius));
+  if (a && s.material) params.set("mat", s.material);
   return params;
 }
 

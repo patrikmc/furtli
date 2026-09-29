@@ -9,7 +9,7 @@ import { formatDate, formatShortDate } from "@/lib/i18n/format";
 import { TYPE_LABELS } from "@/lib/email/copy";
 import { useLang } from "@/components/i18n/LangProvider";
 import { track } from "@/lib/analytics/umami";
-import type { PlzCalendar } from "@/lib/geo/types";
+import { MATERIALS, type Material, type PlzCalendar } from "@/lib/geo/types";
 import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
 import { KindDot } from "./KindDot";
 import { Sheet } from "./Sheet";
@@ -29,6 +29,8 @@ export function NearbyPanel({
   calendar,
   picker,
   onRadiusChange,
+  material,
+  onMaterialChange,
   previewId,
   onPreviewStation,
   onClose,
@@ -41,13 +43,22 @@ export function NearbyPanel({
   /** Postcode picker row; the radius select is passed in to sit next to it. */
   picker: (trailing?: ReactNode) => ReactNode;
   onRadiusChange: (r: Radius) => void;
+  /** Only Sammelstellen that take this material; null = everything. */
+  material: Material | null;
+  onMaterialChange: (m: Material | null) => void;
   /** Station marked on the map by a first tap; tapping its row again opens it. */
   previewId: string | null;
   onPreviewStation: (id: string) => void;
   onClose: () => void;
 }) {
   const { lang, t } = useLang();
-  const [tab, setTab] = useState<Tab>("dates");
+  const [tab, setTab] = useState<Tab>(material ? "places" : "dates");
+  // Picking a material jumps to «Orte»: only Sammelstellen carry materials, so «Termine» would be empty.
+  const [seenMaterial, setSeenMaterial] = useState(material);
+  if (seenMaterial !== material) {
+    setSeenMaterial(material);
+    if (material) setTab("places");
+  }
   // The row last tapped (a station can have several date rows): kept in view when the sheet shrinks.
   const [tappedKey, setTappedKey] = useState<string | null>(null);
   const tapRow = (key: string, id: string) => {
@@ -94,6 +105,22 @@ export function NearbyPanel({
           </select>,
         )}
 
+        <select
+          aria-label={t.nearby.materialAria}
+          value={material ?? ""}
+          onChange={(e) => onMaterialChange((e.target.value || null) as Material | null)}
+          className={`w-full rounded-xl border bg-white px-2.5 py-2 text-sm font-bold shadow-sm ${
+            material ? "border-orange text-ink" : "border-ink/15 text-ink/70"
+          }`}
+        >
+          <option value="">{t.nearby.materialAll}</option>
+          {MATERIALS.map((m) => (
+            <option key={m} value={m}>
+              {materialLabel(m, lang)}
+            </option>
+          ))}
+        </select>
+
         {calendar && Object.keys(calendar.next).length > 0 && (
           <div data-testid="kerbside" className="rounded-2xl bg-white px-3 py-2.5">
             <h3 className="text-xs font-bold tracking-wide text-ink uppercase">{t.nearby.kerbside(calendar.plz)}</h3>
@@ -115,7 +142,11 @@ export function NearbyPanel({
 
         {/* What the list below shows: the Termine tab only has the mobile collections. */}
         <h3 data-testid="list-title" className="font-display text-base leading-tight font-bold text-ink">
-          {tab === "dates" ? t.nearby.datesTitle : t.nearby.placesTitle}
+          {tab === "dates"
+            ? t.nearby.datesTitle
+            : material
+              ? t.nearby.materialTitle(materialLabel(material, lang))
+              : t.nearby.placesTitle}
         </h3>
 
         <div role="tablist" aria-label={t.nearby.viewAria} className="flex gap-1 border-b border-ink/10">

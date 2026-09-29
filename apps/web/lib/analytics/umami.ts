@@ -26,6 +26,7 @@ export const UMAMI_ALLOWED_PARAMS = [
   "station",
   "scope",
   "r",
+  "mat",
 ] as const;
 
 /**
