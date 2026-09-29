@@ -21,13 +21,13 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : u
  *   /?at=47.37350,8.52870        a point (tapped or dragged pin)
  *   /?plz=8004                   a postcode
  *   /?kreis=4                    a Kreis
- *   &scope=area                  only inside the Kreis/postcode ("strict")
+ *   (&scope=area from older links is ignored: the "only this area" toggle is gone)
  *   &r=500|1000|2000             radius for "nearby" (default 1000 m)
  * GPS positions are never written to the URL (privacy): a shared link only
  * contains a point the user deliberately picked on the map.
  */
 export function parseSearchParams(sp: Params, cityPlz: readonly string[]): SearchState {
-  const mode: NearbyMode = one(sp.scope) === "area" ? "strict" : "nearby";
+  const mode: NearbyMode = "nearby";
   const r = Number(one(sp.r));
   const radius = (RADII as readonly number[]).includes(r) ? (r as Radius) : DEFAULT_RADIUS;
 

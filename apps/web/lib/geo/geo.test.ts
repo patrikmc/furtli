@@ -56,10 +56,10 @@ describe("getStations", () => {
 });
 
 describe("URL search state", () => {
-  it("parses a picked point, radius and scope", () => {
+  it("parses a picked point and radius; an old scope=area link falls back to nearby", () => {
     expect(parseSearchParams({ at: "47.37350,8.52870", r: "500", scope: "area" }, CITY_PLZ)).toEqual({
       anchor: { type: "point", lat: 47.3735, lng: 8.5287, source: "map" },
-      mode: "strict",
+      mode: "nearby",
       radius: 500,
     });
   });

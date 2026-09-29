@@ -74,7 +74,8 @@ export function LocateInline({ locate, busy }: { locate: () => void; busy: boole
       className="flex shrink-0 items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-2.5 py-2 text-sm font-bold text-ink shadow-sm hover:bg-mint disabled:opacity-60 md:hidden"
     >
       <LocateIcon busy={busy} />
-      {t.locate.inline}
+      {/* Icon only on very narrow phones, so the postcode and radius keep room on the same row. */}
+      <span className="hidden min-[360px]:inline">{t.locate.inline}</span>
     </button>
   );
 }

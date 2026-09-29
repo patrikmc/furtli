@@ -26,6 +26,7 @@ export function Sheet({
   onClose,
   onBack,
   testId,
+  collapseKey,
   children,
 }: {
   title: string;
@@ -33,12 +34,23 @@ export function Sheet({
   onClose: () => void;
   onBack?: () => void;
   testId: string;
+  /** When this changes (e.g. a new postcode was picked), shrink back to compact so the map shows the new focus. */
+  collapseKey?: string;
   children: ReactNode;
 }) {
   const { t } = useLang();
   const [expanded, setExpanded] = useState(false);
   const [dragY, setDragY] = useState<number | null>(null);
   const start = useRef<{ y: number; moved: boolean } | null>(null);
+
+  // A new collapseKey (e.g. another postcode picked) shrinks the sheet back to
+  // compact, so the newly framed area is visible. Adjusted during render
+  // (React's "storing information from previous renders"), not in an effect.
+  const [seenKey, setSeenKey] = useState(collapseKey);
+  if (seenKey !== collapseKey) {
+    setSeenKey(collapseKey);
+    setExpanded(false);
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();

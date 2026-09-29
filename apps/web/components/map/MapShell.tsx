@@ -1,11 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapRef } from "react-map-gl/maplibre";
 import {
   type Anchor,
-  type NearbyMode,
   areaBounds,
   circlePolygon,
   distanceMeters,
@@ -19,6 +18,7 @@ import { LangToggle } from "@/components/i18n/LangToggle";
 import { useLang } from "@/components/i18n/LangProvider";
 import { track, trackFirstAction } from "@/lib/analytics/umami";
 import { type Radius, type SearchState, writeSearchParams } from "@/lib/geo/anchor";
+import { fitCamera } from "@/lib/geo/camera";
 import { toPoints, todayZurich } from "@/lib/geo/group";
 import { ZH_CENTER } from "@/lib/geo/kreis";
 import { STATION_KINDS, type PlzCalendar, type StationCollection, type StationKind } from "@/lib/geo/types";
@@ -201,15 +201,14 @@ export default function MapShell({
       else if (a.type === "kreis") track("place_search", { by: "kreis", kreis: a.kreis });
       if (a.type === "plz" || a.type === "kreis") trackFirstAction(a.type === "plz" ? "search_plz" : "search_kreis", { lang });
       const r = areas && resolveAnchor(a, areas.kreise, areas.plz);
-      if (r?.area) {
-        const [w, s, e, n] = areaBounds(r.area);
-        mapRef.current?.fitBounds(
-          [
-            [w, s],
-            [e, n],
-          ],
-          { padding: panelPadding(), duration: reducedMotion() ? 0 : 900 },
-        );
+      const map = mapRef.current;
+      if (r?.area && map) {
+        // Frame the whole area in the part of the map the header and sheet leave
+        // free (see fitCamera for why this isn't map.fitBounds).
+        const padding = panelPadding();
+        const box = map.getContainer();
+        const { center, zoom } = fitCamera(areaBounds(r.area), box.clientWidth, box.clientHeight, padding);
+        map.easeTo({ center, zoom, padding, duration: reducedMotion() ? 0 : 900 });
       }
     },
     [areas, setAnchor, lang],
@@ -251,10 +250,6 @@ export default function MapShell({
     [lang],
   );
 
-  const setMode = useCallback((mode: NearbyMode) => {
-    setSearch((s) => ({ ...s, mode }));
-    track("panel_change", { control: "scope", value: mode });
-  }, []);
   const setRadius = useCallback((radius: Radius) => {
     setSearch((s) => ({ ...s, radius, mode: "nearby" }));
     track("panel_change", { control: "radius", value: radius });
@@ -285,13 +280,14 @@ export default function MapShell({
   }, [search, resolved, stations, results, kinds]);
 
   const { locate, busy: locating } = useLocate(onLocate, setHint);
-  const picker = (
+  // The nearby panel puts its radius select on the same row (`trailing`).
+  const picker = (trailing?: ReactNode) => (
     <PlacePicker
       cityPlz={cityPlz}
       anchor={search.anchor}
       onPick={pickArea}
       locate={<LocateInline locate={locate} busy={locating} />}
-      compact
+      trailing={trailing}
     />
   );
 
@@ -356,12 +352,10 @@ export default function MapShell({
         <NearbyPanel
           resolved={resolved}
           results={results}
-          mode={search.mode}
           radius={search.radius}
           today={today}
           calendar={shownCalendar}
           picker={picker}
-          onModeChange={setMode}
           onRadiusChange={setRadius}
           onSelectStation={selectStation}
           onClose={() => setAnchor(null)}
@@ -374,7 +368,7 @@ export default function MapShell({
           >
             <p className="font-display text-lg leading-tight font-bold text-ink">{t.map.startTitle}</p>
             <p className="mt-0.5 mb-2.5 text-sm text-ink/65">{t.map.startText}</p>
-            {picker}
+            {picker()}
           </div>
         )
       )}

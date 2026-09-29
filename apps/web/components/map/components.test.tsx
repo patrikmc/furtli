@@ -87,12 +87,10 @@ describe("NearbyPanel", () => {
       <NearbyPanel
         resolved={resolved}
         results={results}
-        mode="nearby"
         radius={1000}
         today="2026-10-01"
         calendar={{ plz: "8004", next: { paper: ["2026-10-07"], cardboard: ["2026-10-08"] } }}
-        picker={null}
-        onModeChange={() => {}}
+        picker={(trailing) => trailing}
         onRadiusChange={() => {}}
         onSelectStation={() => {}}
         onClose={() => {}}
@@ -123,12 +121,13 @@ describe("NearbyPanel", () => {
     expect(onSelect).toHaveBeenCalledWith("Idaplatz");
   });
 
-  it("offers 'only my Kreis' and a radius, and a way out of empty results", async () => {
-    const onMode = vi.fn();
+  it("titles the list by tab, has no scope toggle, and offers a way out of empty results", async () => {
     const onRadius = vi.fn();
-    renderPanel({ results: [], onModeChange: onMode, onRadiusChange: onRadius, radius: 500 });
-    await userEvent.click(screen.getByRole("radio", { name: "Nur Kreis 4" }));
-    expect(onMode).toHaveBeenCalledWith("strict");
+    renderPanel({ results: [], onRadiusChange: onRadius, radius: 500 });
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.getByTestId("list-title")).toHaveTextContent("Termine: Mobiler Recyclinghof");
+    await userEvent.click(screen.getByRole("tab", { name: /Orte/ }));
+    expect(screen.getByTestId("list-title")).toHaveTextContent("Alle Entsorgungsorte in der Nähe");
     await userEvent.click(screen.getByRole("button", { name: "Auf 2 km erweitern" }));
     expect(onRadius).toHaveBeenCalledWith(2000);
   });

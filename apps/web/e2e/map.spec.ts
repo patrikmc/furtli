@@ -40,7 +40,8 @@ test("tap any point on the map: nearby list grouped by distance, pin, shareable 
   await expect(panel).toContainText(/Kreis \d+/);
   await expect(page.getByTestId("search-pin")).toBeVisible();
   await expect(page).toHaveURL(/\?at=47\.\d{5}%2C8\.\d{5}$/);
-  await expect(page.getByRole("radio", { name: "In der Nähe" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("radiogroup")).toHaveCount(0);
+  await expect(page.getByTestId("list-title")).toHaveText("Termine: Mobiler Recyclinghof");
 
   // Widen to 2 km so the seed stations fall inside, then check the grouping.
   await page.getByRole("combobox", { name: "Umkreis" }).selectOption("2000");
@@ -74,7 +75,7 @@ test("the pin can be dragged to a new place", async ({ page, isMobile }) => {
   await expect(page).toHaveURL(/at=47\.\d{5}%2C8\.\d{5}/);
 });
 
-test("pick a postcode without sharing a location; 'only this postcode' is one tap", async ({ page }) => {
+test("pick a postcode without sharing a location", async ({ page }) => {
   await page.goto("/");
   await mapCentre(page);
   await page.getByTestId("start-card").getByRole("combobox", { name: "Postleitzahl wählen" }).selectOption("8004");
@@ -83,14 +84,7 @@ test("pick a postcode without sharing a location; 'only this postcode' is one ta
   await expect(page).toHaveURL(/plz=8004/);
   await page.getByRole("tab", { name: /Orte/ }).click();
   await expect(page.getByTestId("place-groups").getByRole("region").first()).toHaveAttribute("aria-label", "In PLZ 8004");
-
-  await page.getByRole("radio", { name: "Nur PLZ 8004" }).click();
-  await expect(page).toHaveURL(/scope=area/);
-  const labels = await page
-    .getByTestId("place-groups")
-    .getByRole("region")
-    .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  expect(labels).toEqual(["In PLZ 8004"]);
+  await expect(page.getByTestId("list-title")).toHaveText("Alle Entsorgungsorte in der Nähe");
 });
 
 test("Kreis deep link shows the Kreis first, then neighbours by distance", async ({ page }) => {
@@ -166,4 +160,28 @@ test("on a small phone all four filter chips fit on screen (they wrap, no sidewa
   const chips = (await page.getByRole("group", { name: "Stationstypen filtern" }).boundingBox())!;
   const attrib = (await page.locator(".maplibregl-ctrl-attrib").boundingBox())!;
   expect(attrib.y).toBeGreaterThanOrEqual(chips.y + chips.height);
+});
+
+test("postcode only, with the radius on the same row; picking one after another search frames it", async ({ page }) => {
+  const fitWarnings: string[] = [];
+  page.on("console", (m) => /cannot fit/i.test(m.text()) && fitWarnings.push(m.text()));
+  // A point search first: its camera move leaves persistent map padding behind,
+  // which used to make the postcode fit silently do nothing on phones.
+  await page.goto("/?at=47.37350,8.52870");
+  const { canvas } = await mapCentre(page);
+  const panel = page.getByRole("dialog", { name: "Gewählter Punkt" });
+  await expect(panel).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Kreis wählen" })).toHaveCount(0);
+
+  const plz = panel.getByRole("combobox", { name: "Postleitzahl wählen" });
+  const radius = panel.getByRole("combobox", { name: "Umkreis" });
+  const sameRow = await plz.evaluate((el, other) => el.parentElement === other?.parentElement, await radius.elementHandle());
+  expect(sameRow).toBe(true);
+
+  const before = await canvas.screenshot();
+  await plz.selectOption("8050");
+  await expect(page.getByRole("dialog", { name: "PLZ 8050" })).toBeVisible();
+  await page.waitForTimeout(1200); // camera animation (900 ms)
+  expect(fitWarnings).toEqual([]);
+  expect((await canvas.screenshot()).equals(before)).toBe(false);
 });

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { bandLabel, formatDistance, type NearbyMode, type ResolvedAnchor } from "geo";
-import { anchorSubtitle, anchorTitle, RADII, strictAreaName, type Radius } from "@/lib/geo/anchor";
+import { bandLabel, formatDistance, type ResolvedAnchor } from "geo";
+import { anchorSubtitle, anchorTitle, RADII, type Radius } from "@/lib/geo/anchor";
 import { groupDates, groupPlaces, type Group, type StationResult } from "@/lib/geo/group";
 import { kindShort, materialLabel, timeWindow } from "@/lib/geo/kinds";
 import { formatDate, formatShortDate } from "@/lib/i18n/format";
@@ -24,31 +24,27 @@ type Tab = "dates" | "places";
 export function NearbyPanel({
   resolved,
   results,
-  mode,
   radius,
   today,
   calendar,
   picker,
-  onModeChange,
   onRadiusChange,
   onSelectStation,
   onClose,
 }: {
   resolved: ResolvedAnchor;
   results: StationResult[];
-  mode: NearbyMode;
   radius: Radius;
   today: string;
   calendar: PlzCalendar | null;
-  picker: ReactNode;
-  onModeChange: (m: NearbyMode) => void;
+  /** Postcode picker row; the radius select is passed in to sit next to it. */
+  picker: (trailing?: ReactNode) => ReactNode;
   onRadiusChange: (r: Radius) => void;
   onSelectStation: (id: string) => void;
   onClose: () => void;
 }) {
   const { lang, t } = useLang();
   const [tab, setTab] = useState<Tab>("dates");
-  const areaName = strictAreaName(resolved, lang);
   const isArea = resolved.anchor.type !== "point";
   const bandAreaName = isArea ? (resolved.anchor.type === "kreis" ? t.anchor.kreis(resolved.kreis!) : t.anchor.plz(resolved.plz!)) : null;
   const dateGroups = groupDates(results, today);
@@ -64,13 +60,33 @@ export function NearbyPanel({
     .join(" · ");
 
   return (
-    <Sheet title={anchorTitle(resolved.anchor, lang)} subtitle={subtitle || undefined} onClose={onClose} testId="nearby-panel">
+    <Sheet
+      title={anchorTitle(resolved.anchor, lang)}
+      subtitle={subtitle || undefined}
+      onClose={onClose}
+      testId="nearby-panel"
+      collapseKey={JSON.stringify(resolved.anchor)}
+    >
       <div className="mt-2 space-y-2.5 md:mt-3 md:space-y-3">
-        {picker}
+        {picker(
+          <select
+            aria-label={t.nearby.radiusAria}
+            value={radius}
+            onChange={(e) => onRadiusChange(Number(e.target.value) as Radius)}
+            className="shrink-0 rounded-xl border border-ink/15 bg-white px-2 py-2 text-sm font-bold text-ink shadow-sm"
+          >
+            {RADII.map((r) => (
+              <option key={r} value={r}>
+                {isArea ? "+ " : ""}
+                {r >= 1000 ? `${r / 1000} km` : `${r} m`}
+              </option>
+            ))}
+          </select>,
+        )}
 
         {calendar && Object.keys(calendar.next).length > 0 && (
           <div data-testid="kerbside" className="rounded-2xl bg-white px-3 py-2.5">
-            <h3 className="text-xs font-bold tracking-wide text-ink/60 uppercase">{t.nearby.kerbside(calendar.plz)}</h3>
+            <h3 className="text-xs font-bold tracking-wide text-ink uppercase">{t.nearby.kerbside(calendar.plz)}</h3>
             <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
               {(["paper", "cardboard", "organic", "waste"] as const).map((k) =>
                 calendar.next[k]?.[0] ? (
@@ -87,34 +103,10 @@ export function NearbyPanel({
         {/* First CTA: free reminders (the pickup offer follows on MRH stops). */}
         {anchorPlz && <SubscribeForm key={anchorPlz} plz={anchorPlz} source="nearby" />}
 
-        {/* Scope: nearby (default) or only inside the Kreis / postcode */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div role="radiogroup" aria-label={t.nearby.scopeAria} className="flex rounded-xl bg-ink/5 p-1 text-sm font-bold">
-            <ScopeButton active={mode === "nearby"} onClick={() => onModeChange("nearby")}>
-              {t.nearby.nearby}
-            </ScopeButton>
-            {areaName && (
-              <ScopeButton active={mode === "strict"} onClick={() => onModeChange("strict")}>
-                {t.nearby.only(areaName)}
-              </ScopeButton>
-            )}
-          </div>
-          {mode === "nearby" && (
-            <select
-              aria-label={t.nearby.radiusAria}
-              value={radius}
-              onChange={(e) => onRadiusChange(Number(e.target.value) as Radius)}
-              className="rounded-xl border border-ink/15 bg-white px-2 py-1.5 text-sm font-bold text-ink"
-            >
-              {RADII.map((r) => (
-                <option key={r} value={r}>
-                  {isArea ? "+ " : ""}
-                  {r >= 1000 ? `${r / 1000} km` : `${r} m`}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+        {/* What the list below shows: the Termine tab only has the mobile collections. */}
+        <h3 data-testid="list-title" className="font-display text-base leading-tight font-bold text-ink">
+          {tab === "dates" ? t.nearby.datesTitle : t.nearby.placesTitle}
+        </h3>
 
         <div role="tablist" aria-label={t.nearby.viewAria} className="flex gap-1 border-b border-ink/10">
           <TabButton active={tab === "dates"} onClick={() => { setTab("dates"); track("panel_change", { control: "tab", value: "dates" }); }}>
@@ -127,8 +119,8 @@ export function NearbyPanel({
 
         {results.length === 0 ? (
           <div className="rounded-2xl bg-white px-4 py-3 text-sm text-ink/70">
-            {mode === "strict" && areaName ? t.nearby.noneIn(areaName) : t.nearby.noneWithin(formatDistance(radius, lang))}
-            {mode === "nearby" && radius < 2000 && (
+            {t.nearby.noneWithin(formatDistance(radius, lang))}
+            {radius < 2000 && (
               <button type="button" className="ml-1 font-bold text-orange underline" onClick={() => onRadiusChange(2000)}>
                 {t.nearby.widen}
               </button>
@@ -267,20 +259,6 @@ function OfficialBadge({ show, plz }: { show: boolean; plz: string | null }) {
     <span className="mt-1 inline-block rounded-full bg-mint px-2 py-0.5 text-[11px] font-bold text-moss">
       {t.nearby.officialFor(plz ?? "")}
     </span>
-  );
-}
-
-function ScopeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      onClick={onClick}
-      className={`rounded-lg px-3 py-1 ${active ? "bg-white text-ink shadow-sm" : "text-ink/55"}`}
-    >
-      {children}
-    </button>
   );
 }
 
