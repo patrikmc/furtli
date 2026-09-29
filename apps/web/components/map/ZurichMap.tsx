@@ -22,6 +22,8 @@ import { ZH_BOUNDS } from "@/lib/geo/kreis";
 import { DATA_ATTRIBUTION } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
 import { registerStationIcons } from "./icons";
+import { KindDot } from "./KindDot";
+import type { StationKind } from "@/lib/geo/types";
 import {
   LAYER,
   clusterCircle,
@@ -52,6 +54,15 @@ export interface MapPin {
   source: "gps" | "map";
 }
 
+/** A station tapped in the list: marked on the map, independent of clustering. */
+export interface PreviewStation {
+  id: string;
+  name: string;
+  kind: StationKind;
+  lng: number;
+  lat: number;
+}
+
 export interface ZurichMapProps {
   mapRef: RefObject<MapRef | null>;
   initialView: InitialView;
@@ -70,6 +81,8 @@ export interface ZurichMapProps {
   focusArea?: Feature<AreaGeometry> | null;
   /** Search radius around the pin. */
   radiusCircle?: Polygon | null;
+  /** Station tapped in the list (first tap): drawn as a marker with a ring; tapping it opens it. */
+  previewStation?: PreviewStation | null;
   /** Stations in the current results; others are dimmed. null = no search. */
   highlightIds?: string[] | null;
   /** Fires on every camera change; `e.originalEvent` is set for user gestures. */
@@ -106,6 +119,7 @@ export default function ZurichMap({
   focusArea = null,
   radiusCircle = null,
   highlightIds = null,
+  previewStation = null,
   onMove,
   onMoveEnd,
   hash = false,
@@ -235,6 +249,32 @@ export default function ZurichMap({
           <Layer {...stationHalo(selectedStationId)} />
           <Layer {...stationSymbol(highlightIds)} />
         </Source>
+      )}
+
+      {previewStation && (
+        <Marker
+          longitude={previewStation.lng}
+          latitude={previewStation.lat}
+          anchor="center"
+          style={{ zIndex: 2 }}
+          onClick={(e) => {
+            e.originalEvent.stopPropagation();
+            onSelectStation(previewStation.id);
+          }}
+        >
+          <span
+            data-testid="preview-marker"
+            aria-label={previewStation.name}
+            role="img"
+            className="relative grid cursor-pointer place-items-center"
+          >
+            <span className="absolute h-14 w-14 rounded-full bg-orange/20 ring-2 ring-orange" aria-hidden />
+            <span className="absolute h-14 w-14 rounded-full bg-orange/30 motion-safe:animate-ping" aria-hidden />
+            <span className="relative rounded-full bg-white p-[3px] shadow-md">
+              <KindDot kind={previewStation.kind} size={30} />
+            </span>
+          </span>
+        </Marker>
       )}
 
       {pin && (

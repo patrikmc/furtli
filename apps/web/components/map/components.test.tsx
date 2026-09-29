@@ -92,7 +92,8 @@ describe("NearbyPanel", () => {
         calendar={{ plz: "8004", next: { paper: ["2026-10-07"], cardboard: ["2026-10-08"] } }}
         picker={(trailing) => trailing}
         onRadiusChange={() => {}}
-        onSelectStation={() => {}}
+        previewId={null}
+        onPreviewStation={() => {}}
         onClose={() => {}}
         {...props}
       />,
@@ -111,14 +112,23 @@ describe("NearbyPanel", () => {
     expect(within(sections[0]).getAllByText("offiziell für 8004")).toHaveLength(2);
   });
 
-  it("switches to places (incl. Sammelstellen across the Kreis border)", async () => {
-    const onSelect = vi.fn();
-    renderPanel({ onSelectStation: onSelect });
+  it("switches to places (incl. Sammelstellen across the Kreis border); a tap marks the station", async () => {
+    const onPreview = vi.fn();
+    renderPanel({ onPreviewStation: onPreview });
     await userEvent.click(screen.getByRole("tab", { name: /Orte/ }));
     const groups = screen.getByTestId("place-groups");
     expect(within(groups).getByText("Idaplatz")).toBeInTheDocument();
+    expect(screen.queryByTestId("tap-again")).toBeNull();
     await userEvent.click(within(groups).getByText("Idaplatz"));
-    expect(onSelect).toHaveBeenCalledWith("Idaplatz");
+    expect(onPreview).toHaveBeenCalledWith("Idaplatz");
+  });
+
+  it("shows the marked station's row as pressed, with a 'tap again' hint", async () => {
+    renderPanel({ previewId: "Idaplatz" });
+    await userEvent.click(screen.getByRole("tab", { name: /Orte/ }));
+    const row = within(screen.getByTestId("place-groups")).getByRole("button", { pressed: true });
+    expect(row).toHaveTextContent("Idaplatz");
+    expect(row).toHaveTextContent("Nochmals tippen für Details");
   });
 
   it("titles the list by tab, has no scope toggle, and offers a way out of empty results", async () => {

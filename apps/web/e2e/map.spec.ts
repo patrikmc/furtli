@@ -52,9 +52,15 @@ test("tap any point on the map: nearby list grouped by distance, pin, shareable 
   const labels = await groups.evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
   expect(labels.every((l) => /m|km/.test(l ?? ""))).toBe(true);
 
-  // Open a station from the list, then go back to the list.
-  await page.getByTestId("place-groups").getByRole("button").first().click();
+  // First tap marks the station on the map (list stays); second tap opens it; then back to the list.
+  const first = page.getByTestId("place-groups").getByRole("button").first();
+  await first.click();
+  await expect(page.getByTestId("preview-marker")).toBeVisible();
+  await expect(first).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("station-sheet")).toHaveCount(0);
+  await first.click();
   await expect(page.getByTestId("station-sheet")).toContainText("entfernt");
+  await expect(page.getByTestId("preview-marker")).toHaveCount(0);
   await page.getByRole("button", { name: "Zurück zur Liste" }).click();
   await expect(page.getByRole("dialog", { name: "Gewählter Punkt" })).toBeVisible();
 });

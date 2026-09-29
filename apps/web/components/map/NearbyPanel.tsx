@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { bandLabel, formatDistance, type ResolvedAnchor } from "geo";
 import { anchorSubtitle, anchorTitle, RADII, type Radius } from "@/lib/geo/anchor";
 import { groupDates, groupPlaces, type Group, type StationResult } from "@/lib/geo/group";
@@ -29,7 +29,8 @@ export function NearbyPanel({
   calendar,
   picker,
   onRadiusChange,
-  onSelectStation,
+  previewId,
+  onPreviewStation,
   onClose,
 }: {
   resolved: ResolvedAnchor;
@@ -40,11 +41,19 @@ export function NearbyPanel({
   /** Postcode picker row; the radius select is passed in to sit next to it. */
   picker: (trailing?: ReactNode) => ReactNode;
   onRadiusChange: (r: Radius) => void;
-  onSelectStation: (id: string) => void;
+  /** Station marked on the map by a first tap; tapping its row again opens it. */
+  previewId: string | null;
+  onPreviewStation: (id: string) => void;
   onClose: () => void;
 }) {
   const { lang, t } = useLang();
   const [tab, setTab] = useState<Tab>("dates");
+  // The row last tapped (a station can have several date rows): kept in view when the sheet shrinks.
+  const [tappedKey, setTappedKey] = useState<string | null>(null);
+  const tapRow = (key: string, id: string) => {
+    setTappedKey(key);
+    onPreviewStation(id);
+  };
   const isArea = resolved.anchor.type !== "point";
   const bandAreaName = isArea ? (resolved.anchor.type === "kreis" ? t.anchor.kreis(resolved.kreis!) : t.anchor.plz(resolved.plz!)) : null;
   const dateGroups = groupDates(results, today);
@@ -65,7 +74,8 @@ export function NearbyPanel({
       subtitle={subtitle || undefined}
       onClose={onClose}
       testId="nearby-panel"
-      collapseKey={JSON.stringify(resolved.anchor)}
+      // Shrinks to compact on a new search and on a first tap, so the map shows the marked station.
+      collapseKey={JSON.stringify([resolved.anchor, previewId])}
     >
       <div className="mt-2 space-y-2.5 md:mt-3 md:space-y-3">
         {picker(
@@ -141,8 +151,13 @@ export function NearbyPanel({
               {(row) => {
                 const p = row.result.item.f.properties;
                 const time = timeWindow(p.kind, p.hours, row.date, lang);
+                const key = `${p.id}-${row.date}`;
                 return (
-                  <RowButton onClick={() => onSelectStation(p.id)}>
+                  <RowButton
+                    active={previewId === p.id}
+                    keepInView={previewId === p.id && tappedKey === key}
+                    onClick={() => tapRow(key, p.id)}
+                  >
                     <KindDot kind={p.kind} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold text-ink">
@@ -177,7 +192,11 @@ export function NearbyPanel({
                     ? t.nearby.nextDate(formatDate(p.nextDates.find((d) => d >= today)!, lang))
                     : (p.address ?? "");
               return (
-                <RowButton onClick={() => onSelectStation(p.id)}>
+                <RowButton
+                  active={previewId === p.id}
+                  keepInView={previewId === p.id && tappedKey === p.id}
+                  onClick={() => tapRow(p.id, p.id)}
+                >
                   <KindDot kind={p.kind} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-bold text-ink">{p.name}</span>
@@ -231,14 +250,48 @@ function Groups<T>({
   );
 }
 
-function RowButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+/**
+ * A station row. First tap marks the station on the map (`active`, with a
+ * hint); a second tap opens it. Hover doesn't exist on phones, so tap it is.
+ */
+function RowButton({
+  active,
+  keepInView,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  keepInView: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useLang();
+  const ref = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!keepInView) return;
+    // After the sheet's 200 ms shrink, bring the tapped row back into view.
+    const id = window.setTimeout(() => ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 250);
+    return () => window.clearTimeout(id);
+  }, [keepInView]);
   return (
     <button
+      ref={ref}
       type="button"
+      aria-pressed={active}
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-2xl bg-white px-3 py-2.5 text-left hover:bg-mint/60"
+      className={`w-full rounded-2xl bg-white px-3 py-2.5 text-left ${
+        active ? "ring-2 ring-orange" : "hover:bg-mint/60"
+      }`}
     >
-      {children}
+      <span className="flex w-full items-center gap-3">{children}</span>
+      {active && (
+        <span data-testid="tap-again" className="mt-1.5 flex items-center justify-end gap-1 text-xs font-bold text-orange">
+          {t.nearby.tapAgain}
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden>
+            <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          </svg>
+        </span>
+      )}
     </button>
   );
 }

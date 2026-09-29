@@ -31,7 +31,10 @@ test("first_action fires once per page load; panel changes are tracked", async (
 
   await page.getByRole("combobox", { name: "Umkreis" }).selectOption("2000");
   await page.getByRole("tab", { name: /Orte/ }).click();
-  await page.getByTestId("place-groups").getByRole("button").first().click();
+  const row = page.getByTestId("place-groups").getByRole("button").first();
+  await row.click(); // marks it on the map
+  await expect(row).toHaveAttribute("aria-pressed", "true");
+  await row.click(); // opens it
   await expect(page.getByTestId("station-sheet")).toBeVisible();
 
   const sent = await events(page);
@@ -43,6 +46,7 @@ test("first_action fires once per page load; panel changes are tracked", async (
     { control: "radius", value: 2000 },
     { control: "tab", value: "places" },
   ]);
+  expect(named(sent, "station_preview")).toHaveLength(1);
   expect(named(sent, "station_open")).toHaveLength(1);
 });
 

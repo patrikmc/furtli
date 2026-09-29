@@ -31,7 +31,7 @@ import { SHEET_COMPACT } from "./Sheet";
 import { StationSheet } from "./StationSheet";
 import { TypeFilterChips } from "./TypeFilterChips";
 import { useMapData } from "./useMapData";
-import type { InitialView, MapPin } from "./ZurichMap";
+import type { InitialView, MapPin, PreviewStation } from "./ZurichMap";
 
 // MapLibre needs `window`, so the map itself never renders on the server.
 const ZurichMap = dynamic(() => import("./ZurichMap"), { ssr: false });
@@ -77,6 +77,8 @@ export default function MapShell({
 
   const [search, setSearch] = useState<SearchState>(initialSearch);
   const [stationId, setStationId] = useState<string | null>(initialStationId);
+  // First tap on a list row marks the station on the map; a second tap opens it.
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [kinds, setKinds] = useState<StationKind[]>([...STATION_KINDS]);
   const [hint, setHint] = useState<string | null>(null);
   const [calendar, setCalendar] = useState<PlzCalendar | null>(null);
@@ -112,6 +114,13 @@ export default function MapShell({
     const a = resolved.anchor;
     return a.type === "point" ? distanceMeters(a, { lng, lat }) : distanceToArea({ lng, lat }, resolved.area!);
   }, [selectedStation, resolved]);
+
+  const preview = useMemo<PreviewStation | null>(() => {
+    const f = previewId ? allStations?.features.find((s) => s.properties.id === previewId) : null;
+    if (!f) return null;
+    const [lng, lat] = f.geometry.coordinates;
+    return { id: f.properties.id, name: f.properties.name, kind: f.properties.kind, lng, lat };
+  }, [allStations, previewId]);
 
   const hasPlaceholders = allStations?.features.some((f) => f.properties.placeholder) ?? false;
 
@@ -182,6 +191,7 @@ export default function MapShell({
   const setAnchor = useCallback((anchor: Anchor | null) => {
     setSearch((s) => ({ ...s, anchor }));
     setStationId(null);
+    setPreviewId(null);
     setHint(null);
   }, []);
 
@@ -234,6 +244,7 @@ export default function MapShell({
       const f = allStations?.features.find((s) => s.properties.id === id);
       if (!f) return;
       setStationId(id);
+      setPreviewId(null);
       track("station_open", { kind: f.properties.kind });
       trackFirstAction("station", { lang });
       const [lng, lat] = f.geometry.coordinates;
@@ -242,9 +253,47 @@ export default function MapShell({
     [allStations, flyTo, lang],
   );
 
+  // First tap on a list row: mark the station on the map and, only if it's
+  // outside the visible part of the map, zoom out just enough to show it next
+  // to the search location. Second tap on the same row: open the station.
+  const previewStation = useCallback(
+    (id: string) => {
+      if (id === previewId) return selectStation(id);
+      const f = allStations?.features.find((s) => s.properties.id === id);
+      if (!f) return;
+      setPreviewId(id);
+      track("station_preview", { kind: f.properties.kind });
+      const map = mapRef.current;
+      if (!map) return;
+      const [lng, lat] = f.geometry.coordinates;
+      const pad = panelPadding();
+      const box = map.getContainer();
+      const w = box.clientWidth;
+      const h = box.clientHeight;
+      const m = 40; // keep the marker's ring clear of the edges
+      const p = map.project([lng, lat]);
+      if (p.x >= pad.left + m && p.x <= w - pad.right - m && p.y >= pad.top + m && p.y <= h - pad.bottom - m) return;
+      let [west, south, east, north] = [lng, lat, lng, lat];
+      const a = resolved?.anchor;
+      const around = a?.type === "point" ? [a.lng, a.lat, a.lng, a.lat] : resolved?.area ? areaBounds(resolved.area) : null;
+      if (around) {
+        west = Math.min(west, around[0]);
+        south = Math.min(south, around[1]);
+        east = Math.max(east, around[2]);
+        north = Math.max(north, around[3]);
+      }
+      const inner = { top: pad.top + m, right: pad.right + m, bottom: pad.bottom + m, left: pad.left + m };
+      // Never zoom in: the current zoom is the upper bound.
+      const { center, zoom } = fitCamera([west, south, east, north], w, h, inner, map.getZoom());
+      map.easeTo({ center, zoom, padding: pad, duration: reducedMotion() ? 0 : 700 });
+    },
+    [previewId, allStations, resolved, selectStation],
+  );
+
   const toggleKind = useCallback(
     (k: StationKind) => {
       setKinds((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
+      setPreviewId(null);
       trackFirstAction("filter", { lang });
     },
     [lang],
@@ -252,6 +301,7 @@ export default function MapShell({
 
   const setRadius = useCallback((radius: Radius) => {
     setSearch((s) => ({ ...s, radius, mode: "nearby" }));
+    setPreviewId(null);
     track("panel_change", { control: "radius", value: radius });
   }, []);
 
@@ -308,6 +358,7 @@ export default function MapShell({
           focusArea={focusArea}
           radiusCircle={radiusCircle}
           highlightIds={highlightIds}
+          previewStation={selectedStation ? null : preview}
           onLoad={() => setMapReady(true)}
           onError={(m) => setMapError(m)}
         />
@@ -357,7 +408,8 @@ export default function MapShell({
           calendar={shownCalendar}
           picker={picker}
           onRadiusChange={setRadius}
-          onSelectStation={selectStation}
+          previewId={previewId}
+          onPreviewStation={previewStation}
           onClose={() => setAnchor(null)}
         />
       ) : (
