@@ -81,6 +81,9 @@ feature branch ──PR──▶ CI (ci, e2e) + preview in the staging project
    | `EMAIL_FROM` / `EMAIL_REPLY_TO` / `EMAIL_CONTACT_ADDRESS` | Config | as above |
    | `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | Config | Umami website id |
    | `NEXT_PUBLIC_UMAMI_DOMAINS` | Config | `furtli.ch,www.furtli.ch` |
+   | `UMAMI_API_KEY` | Secret | Umami Cloud API key (weekly snapshot) |
+   | `REPORT_SECRET` | Secret | random, for `/api/internal/weekly-report` |
+   | `NOTION_TOKEN` | Secret | optional: Notion integration for the weekly report export |
 
    No `EMAIL_SUBJECT_PREFIX`. Don't connect the Neon integration to this project.
 4. Ignored Build Step: same command as staging (`APP_ENV=production` makes it build `release` only).

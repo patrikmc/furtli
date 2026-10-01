@@ -11,6 +11,7 @@ export {
   asc,
   ne,
   gte,
+  lt,
   lte,
   between,
   isNull,

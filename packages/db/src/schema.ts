@@ -237,3 +237,32 @@ export type Subscriber = typeof subscriber.$inferSelect;
 export type NewSubscriber = typeof subscriber.$inferInsert;
 export type Subscription = typeof subscription.$inferSelect;
 export type EmailLog = typeof emailLog.$inferSelect;
+
+/**
+ * Weekly analytics snapshot (apps/web/lib/analytics/weekly): one row per
+ * reporting week (Sunday 00:00 to Saturday 24:00, Europe/Zurich), written by
+ * the Sunday cron. Aggregates only, never a row per person or an email.
+ * Keeps the trend after Umami's 6-month retention and gives the report one
+ * place to read from.
+ */
+export const weeklyMetrics = pgTable("weekly_metrics", {
+  /** ISO week of the period's Saturday, e.g. "2026-W40". */
+  week: text("week").primaryKey(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  /** Snapshot format; bump when the JSON shape changes. */
+  version: integer("version").notNull().default(1),
+  /** Umami Cloud API aggregates (null when the API wasn't configured or reachable). */
+  umami: jsonb("umami"),
+  /** Neon aggregates: subscribers, subscriptions, emails, ingest runs. */
+  neon: jsonb("neon"),
+  /** Rates computed from the two (activation, funnel steps, churn). */
+  derived: jsonb("derived"),
+  /** Sources or calls that failed: shown as data gaps in the report. */
+  errors: jsonb("errors").notNull().default(sql`'[]'::jsonb`),
+  /** Page in the Notion Reviews database, once exported. */
+  notionPageId: text("notion_page_id"),
+  generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type WeeklyMetrics = typeof weeklyMetrics.$inferSelect;

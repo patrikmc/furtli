@@ -22,7 +22,9 @@
     "ingest": "pnpm --filter ingest ingest",
     "ingest:dry": "pnpm --filter ingest ingest --dry-run",
     "subscriber": "pnpm --filter web subscriber",
-    "attribution": "pnpm --filter web attribution"
+    "attribution": "pnpm --filter web attribution",
+    "weekly-snapshot": "pnpm --filter web weekly-snapshot",
+    "weekly-report": "pnpm --filter web weekly-report"
   },
   "dependencies": {
     "@neon/config": "^1.7.3",
