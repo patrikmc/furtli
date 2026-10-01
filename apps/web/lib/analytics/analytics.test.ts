@@ -1,6 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { acquisitionProps, channelOf, parseAttribution, visitSourceProps } from "./attribution";
-import { UMAMI_BEFORE_SEND_FN, UMAMI_BEFORE_SEND_JS, UMAMI_OPT_OUT_JS, umamiEnabled, umamiScriptAttrs } from "./umami";
+import {
+  UMAMI_BEFORE_SEND_FN,
+  UMAMI_BEFORE_SEND_JS,
+  UMAMI_OPT_OUT_JS,
+  countBucket,
+  errorCode,
+  metersBucket,
+  msBucket,
+  resetTrackOnce,
+  trackError,
+  trackOnce,
+  trackPageview,
+  umamiEnabled,
+  umamiScriptAttrs,
+} from "./umami";
 
 type Payload = { url?: string; referrer?: string; website?: string; [metric: string]: unknown };
 
@@ -105,6 +119,8 @@ describe("umamiScriptAttrs", () => {
     expect(a["data-performance"]).toBe("true");
     expect(a["data-before-send"]).toBe(UMAMI_BEFORE_SEND_FN);
     expect(a["data-exclude-hash"]).toBe("true");
+    // Pageviews are sent by <PageviewTracker>, not on every replaceState.
+    expect(a["data-auto-pageview"]).toBe("false");
     expect(a).not.toHaveProperty("data-domains");
   });
   it("limits hostnames when domains are set", () => {
@@ -178,5 +194,70 @@ describe("acquisition event fields", () => {
       referrer: "www.google.ch",
       landing: "/abholen",
     });
+  });
+});
+
+describe("buckets", () => {
+  it("groups result counts", () => {
+    expect([0, 1, 2, 3, 5, 6, 10, 11, 40].map(countBucket)).toEqual(["0", "1-2", "1-2", "3-5", "3-5", "6-10", "6-10", "11+", "11+"]);
+  });
+  it("groups distances (0 = inside the searched area)", () => {
+    expect([0, 120, 300, 450, 900, 1500, 2600].map(metersBucket)).toEqual([
+      "inside",
+      "0-300m",
+      "0-300m",
+      "300-600m",
+      "600m-1km",
+      "1-2km",
+      "2km+",
+    ]);
+  });
+  it("groups load times", () => {
+    expect([400, 1000, 2500, 5000, 9000].map(msBucket)).toEqual(["<1s", "1-2s", "2-4s", "4-8s", "8s+"]);
+  });
+});
+
+describe("errorCode", () => {
+  it("takes the HTTP status from our error messages, never the free text", () => {
+    expect(errorCode(new Error("Failed to load stations (503)"))).toBe("503");
+    expect(errorCode("Subscribe failed (429)")).toBe("429");
+    expect(errorCode(new TypeError("NetworkError when attempting to fetch resource."))).toBe("error");
+  });
+});
+
+describe("tracker calls", () => {
+  const sent: unknown[][] = [];
+  beforeEach(() => {
+    sent.length = 0;
+    resetTrackOnce();
+    vi.stubGlobal("umami", {
+      track: (e: unknown, d?: unknown) =>
+        sent.push(typeof e === "function" ? ["$pageview", e({ url: "/ignored", referrer: "https://www.google.com/" })] : [e, d]),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("trackOnce sends an event once per key", () => {
+    trackOnce("map_ready", "map_ready", { ms: 800 });
+    trackOnce("map_ready", "map_ready", { ms: 900 });
+    expect(sent).toEqual([["map_ready", { ms: 800 }]]);
+  });
+
+  it("trackError sends one client_error per part with a code, never a message", () => {
+    trackError("stations_api", 503);
+    trackError("stations_api", 500);
+    trackError("calendar_api");
+    expect(sent).toEqual([
+      ["client_error", { where: "stations_api", code: "503" }],
+      ["client_error", { where: "calendar_api", code: "error" }],
+    ]);
+  });
+
+  it("trackPageview sends the current path, and the previous path as referrer on in-app navigation", () => {
+    window.history.replaceState(null, "", "/datenschutz?utm_source=reddit");
+    trackPageview();
+    trackPageview("/");
+    expect(sent[0]).toEqual(["$pageview", expect.objectContaining({ url: "/datenschutz?utm_source=reddit", referrer: "https://www.google.com/" })]);
+    expect(sent[1]).toEqual(["$pageview", expect.objectContaining({ url: "/datenschutz?utm_source=reddit", referrer: `${window.location.origin}/` })]);
   });
 });

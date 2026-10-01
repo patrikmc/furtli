@@ -15,7 +15,17 @@ import {
 
 import { LangToggle } from "@/components/i18n/LangToggle";
 import { useLang } from "@/components/i18n/LangProvider";
-import { track, trackFirstAction } from "@/lib/analytics/umami";
+import {
+  countBucket,
+  errorCode,
+  metersBucket,
+  msBucket,
+  sinceLoadMs,
+  track,
+  trackError,
+  trackFirstAction,
+  trackOnce,
+} from "@/lib/analytics/umami";
 import { type Radius, type SearchState, writeSearchParams } from "@/lib/geo/anchor";
 import { fitCamera } from "@/lib/geo/camera";
 import { toPoints, todayZurich } from "@/lib/geo/group";
@@ -30,7 +40,10 @@ import { SHEET_COMPACT } from "./Sheet";
 import { StationSheet } from "./StationSheet";
 import { TypeFilterChips } from "./TypeFilterChips";
 import { useMapData } from "./useMapData";
-import type { InitialView, MapPin, PreviewStation } from "./ZurichMap";
+import type { InitialView, MapErrorKind, MapPin, PreviewStation } from "./ZurichMap";
+
+/** How a station card was opened (`station_open.via`). */
+type OpenVia = "map" | "preview_marker" | "list" | "link";
 
 // MapLibre needs `window`, so the map itself never renders on the server.
 const ZurichMap = dynamic(() => import("./ZurichMap"), { ssr: false });
@@ -71,6 +84,8 @@ export default function MapShell({
   const active = devBasemap ?? DEFAULT_BASEMAP;
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const readyRef = useRef(false);
+  const tileErrors = useRef(0);
 
   const { stations: allStations, areas, error: dataError } = useMapData();
 
@@ -151,9 +166,15 @@ export default function MapShell({
     if (!anchorPlz) return;
     const ctrl = new AbortController();
     fetch(`/api/calendar?plz=${anchorPlz}`, { signal: ctrl.signal })
-      .then((r) => (r.ok ? (r.json() as Promise<PlzCalendar>) : null))
+      .then((r) => {
+        if (r.ok) return r.json() as Promise<PlzCalendar>;
+        trackError("calendar_api", r.status);
+        return null;
+      })
       .then((c) => setCalendar(c && Object.keys(c.next).length ? c : null))
-      .catch(() => {});
+      .catch(() => {
+        if (!ctrl.signal.aborted) trackError("calendar_api");
+      });
     return () => ctrl.abort();
   }, [anchorPlz]);
   const shownCalendar = calendar && calendar.plz === anchorPlz ? calendar : null;
@@ -203,7 +224,6 @@ export default function MapShell({
   const pickPoint = useCallback(
     (lng: number, lat: number) => {
       setAnchor({ type: "point", lng, lat, source: "map" });
-      track("place_search", { by: "map" });
       trackFirstAction("search_map", { lang });
     },
     [setAnchor, lang],
@@ -212,8 +232,6 @@ export default function MapShell({
   const pickArea = useCallback(
     (a: Anchor) => {
       setAnchor(a);
-      if (a.type === "plz") track("place_search", { by: "plz", plz: a.plz });
-      else if (a.type === "kreis") track("place_search", { by: "kreis", kreis: a.kreis });
       if (a.type === "plz" || a.type === "kreis") trackFirstAction(a.type === "plz" ? "search_plz" : "search_kreis", { lang });
       const r = areas && resolveAnchor(a, areas.kreise, areas.plz);
       const map = mapRef.current;
@@ -239,19 +257,18 @@ export default function MapShell({
         return;
       }
       setAnchor({ type: "point", lng, lat, source: "gps" });
-      track("place_search", { by: "gps" });
       flyTo(lng, lat, 14.5);
     },
     [flyTo, setAnchor, t, lang],
   );
 
   const selectStation = useCallback(
-    (id: string) => {
+    (id: string, via: OpenVia) => {
       const f = allStations?.features.find((s) => s.properties.id === id);
       if (!f) return;
       setStationId(id);
       setPreviewId(null);
-      track("station_open", { kind: f.properties.kind });
+      track("station_open", stationProps(f.properties, via));
       trackFirstAction("station", { lang });
       const [lng, lat] = f.geometry.coordinates;
       flyTo(lng, lat, Math.max(mapRef.current?.getZoom() ?? 12, 14.5));
@@ -264,11 +281,11 @@ export default function MapShell({
   // to the search location. Second tap on the same row: open the station.
   const previewStation = useCallback(
     (id: string) => {
-      if (id === previewId) return selectStation(id);
+      if (id === previewId) return selectStation(id, "list");
       const f = allStations?.features.find((s) => s.properties.id === id);
       if (!f) return;
       setPreviewId(id);
-      track("station_preview", { kind: f.properties.kind });
+      track("station_preview", { kind: f.properties.kind, station: f.properties.id, kreis: f.properties.kreis });
       const map = mapRef.current;
       if (!map) return;
       const [lng, lat] = f.geometry.coordinates;
@@ -315,6 +332,63 @@ export default function MapShell({
     setSearch((s) => ({ ...s, radius, mode: "nearby" }));
     setPreviewId(null);
     track("panel_change", { control: "radius", value: radius });
+  }, []);
+
+  // "place_search": once per new search location (tap, GPS, PLZ, Kreis), sent
+  // once its results are known so it carries what the search found. The
+  // search a deep link opens with (?at= / ?plz=) is not counted as a search.
+  const lastSearched = useRef<Anchor | null>(initialSearch.anchor ?? null);
+  useEffect(() => {
+    const a = search.anchor;
+    if (!a || a === lastSearched.current || !resolved || !stations) return;
+    lastSearched.current = a;
+    const nearest = results[0]?.distance;
+    // PLZ for postcode searches and map taps / GPS (coarse: never the point itself).
+    const plz = a.type === "plz" ? a.plz : a.type === "point" ? resolved.plz : null;
+    const where: Record<string, string | number> = a.type === "kreis" ? { kreis: a.kreis } : plz ? { plz } : {};
+    track("place_search", {
+      by: a.type === "point" ? (a.source ?? "map") : a.type,
+      ...where,
+      result_count: results.length,
+      results: countBucket(results.length),
+      ...(nearest !== undefined ? { nearest: metersBucket(nearest) } : {}),
+      radius: search.radius,
+      ...(search.material ? { material: search.material } : {}),
+    });
+  }, [search, resolved, stations, results]);
+
+  // A deep link straight to a station (?station=) opens its card without a tap.
+  const linkTracked = useRef(false);
+  useEffect(() => {
+    if (linkTracked.current || !initialStationId || !allStations) return;
+    linkTracked.current = true;
+    const f = allStations.features.find((s) => s.properties.id === initialStationId);
+    if (f) track("station_open", stationProps(f.properties, "link"));
+  }, [allStations, initialStationId]);
+
+  // ---- map health ---------------------------------------------------------------------
+  // "map_ready": base map drawn and stations loaded, in ms since the page started
+  // loading. Once per page load. Visitors who leave before it are the map's
+  // silent losses; "client_error" map_timeout catches the ones still waiting at 15 s.
+  useEffect(() => {
+    if (!mapReady || !allStations) return;
+    const ms = sinceLoadMs();
+    trackOnce("map_ready", "map_ready", { ms, within: msBucket(ms) });
+  }, [mapReady, allStations]);
+  useEffect(() => {
+    if (mapReady) return;
+    const timer = window.setTimeout(() => trackError("map_timeout", "timeout"), 15_000);
+    return () => window.clearTimeout(timer);
+  }, [mapReady]);
+  useEffect(() => {
+    if (dataError) trackError("stations_api", errorCode(dataError));
+  }, [dataError]);
+  const onMapError = useCallback((message: string, kind: MapErrorKind) => {
+    setMapError(message);
+    if (kind === "map" && !readyRef.current) trackError("map_style");
+    // A few failed tiles are normal (edges, slow network); three or more on one
+    // page load mean the base map visibly has holes.
+    if (kind === "tile" && ++tileErrors.current === 3) trackError("tiles");
   }, []);
 
   // "search_no_result": a search that shows no station (e.g. strict scope in a
@@ -371,8 +445,11 @@ export default function MapShell({
           radiusCircle={radiusCircle}
           highlightIds={highlightIds}
           previewStation={selectedStation ? null : preview}
-          onLoad={() => setMapReady(true)}
-          onError={(m) => setMapError(m)}
+          onLoad={() => {
+            readyRef.current = true;
+            setMapReady(true);
+          }}
+          onError={onMapError}
         />
       )}
 
@@ -456,6 +533,11 @@ export default function MapShell({
       )}
     </div>
   );
+}
+
+/** `station_open` / `station_preview` properties: the station is a public place, never the visitor's location. */
+function stationProps(p: { id: string; kind: StationKind; kreis: number }, via: OpenVia) {
+  return { kind: p.kind, station: p.id, kreis: p.kreis, via };
 }
 
 /** Dev-only: switch between the swisstopo base maps in place. */

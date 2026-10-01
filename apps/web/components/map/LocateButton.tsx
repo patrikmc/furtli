@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useLang } from "@/components/i18n/LangProvider";
+import { track } from "@/lib/analytics/umami";
 
 export type LocateResult = { lng: number; lat: number };
 
@@ -16,16 +17,20 @@ export function useLocate(onLocate: (pos: LocateResult) => void, setHint: (hint:
     setHint(null);
     if (!("geolocation" in navigator)) {
       setHint(t.locate.unsupported);
+      track("locate", { outcome: "unsupported" });
       return;
     }
     setBusy(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setBusy(false);
+        // Outside the map area is reported by the caller (search_no_result, reason outside_map).
+        track("locate", { outcome: "ok" });
         onLocate({ lng: pos.coords.longitude, lat: pos.coords.latitude });
       },
       (err) => {
         setBusy(false);
+        track("locate", { outcome: locateOutcome(err) });
         setHint(
           err.code === err.PERMISSION_DENIED ? t.locate.denied : t.locate.failed,
         );
@@ -34,6 +39,13 @@ export function useLocate(onLocate: (pos: LocateResult) => void, setHint: (hint:
     );
   }, [onLocate, setHint, t]);
   return { locate, busy };
+}
+
+/** "locate" outcome: why we didn't get a position (denied permission forces a manual search). */
+export function locateOutcome(err: Pick<GeolocationPositionError, "code" | "PERMISSION_DENIED" | "TIMEOUT">): string {
+  if (err.code === err.PERMISSION_DENIED) return "denied";
+  if (err.code === err.TIMEOUT) return "timeout";
+  return "unavailable";
 }
 
 function LocateIcon({ busy }: { busy: boolean }) {

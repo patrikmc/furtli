@@ -63,6 +63,14 @@ export interface PreviewStation {
   lat: number;
 }
 
+export type MapErrorKind = "tile" | "map";
+
+/** MapLibre tags errors from a tile or source request with `tile` / `sourceId`. */
+function mapErrorKind(e: unknown): MapErrorKind {
+  const o = e as { tile?: unknown; sourceId?: unknown };
+  return o.tile || o.sourceId ? "tile" : "map";
+}
+
 export interface ZurichMapProps {
   mapRef: RefObject<MapRef | null>;
   initialView: InitialView;
@@ -70,9 +78,11 @@ export interface ZurichMapProps {
   kreise: KreisCollection | null;
   stations: StationCollection | null;
   selectedStationId: string | null;
-  onSelectStation: (id: string) => void;
+  /** `via`: a station symbol on the map, or the ringed marker of a station previewed from the list. */
+  onSelectStation: (id: string, via: "map" | "preview_marker") => void;
   onLoad: () => void;
-  onError: (message: string) => void;
+  /** `kind`: "tile" for a single tile / source request (often harmless), "map" for anything else (e.g. the style). */
+  onError: (message: string, kind: MapErrorKind) => void;
   /** Tap on the map outside a station: pick this point as the search location. */
   onPickPoint?: (lng: number, lat: number) => void;
   /** The search location; draggable when onPickPoint is set. */
@@ -154,7 +164,7 @@ export default function ZurichMap({
       if (station) {
         // Look the station up by id rather than trusting f.properties:
         // MapLibre stringifies array properties such as nextDates.
-        onSelectStation(String(station.properties.id));
+        onSelectStation(String(station.properties.id), "map");
         return;
       }
       const cluster = features.find((f) => f.layer.id === LAYER.clusters);
@@ -204,7 +214,7 @@ export default function ZurichMap({
         mapRef.current?.getMap().on("style.load", handleStyle);
         onLoad();
       }}
-      onError={(e) => onError(e.error?.message ?? "Kartenfehler")}
+      onError={(e) => onError(e.error?.message ?? "Kartenfehler", mapErrorKind(e))}
       onMove={onMove}
       onMoveEnd={onMoveEnd}
       hash={hash}
@@ -259,7 +269,7 @@ export default function ZurichMap({
           style={{ zIndex: 2 }}
           onClick={(e) => {
             e.originalEvent.stopPropagation();
-            onSelectStation(previewStation.id);
+            onSelectStation(previewStation.id, "preview_marker");
           }}
         >
           <span

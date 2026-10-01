@@ -7,6 +7,7 @@ import "@fontsource/atkinson-hyperlegible/400.css";
 import "@fontsource/atkinson-hyperlegible/700.css";
 import "./globals.css";
 import { AttributionCapture } from "@/components/analytics/AttributionCapture";
+import { PageviewTracker } from "@/components/analytics/PageviewTracker";
 import { LangProvider } from "@/components/i18n/LangProvider";
 import { HTML_LANG } from "@/lib/i18n/lang";
 import { getLang } from "@/lib/i18n/server";
@@ -41,6 +42,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <LangProvider initialLang={lang}>{children}</LangProvider>
         <AttributionCapture />
+        {/* Always mounted (a no-op without the tracker), so tests can stand in for Umami. */}
+        <PageviewTracker />
         <SpeedInsightsClient />
         {umamiId && (
           <>
@@ -48,7 +51,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Script id="umami-before-send" strategy="beforeInteractive">
               {UMAMI_OPT_OUT_JS + UMAMI_BEFORE_SEND_JS}
             </Script>
-            {/* One tracker tag: pageviews, events and Core Web Vitals (data-performance). */}
+            {/* One tracker tag: events and Core Web Vitals (data-performance). Pageviews come from <PageviewTracker>. */}
             <Script src={umamiSrc} strategy="afterInteractive" {...umamiScriptAttrs(umamiId, umamiDomains)} />
           </>
         )}

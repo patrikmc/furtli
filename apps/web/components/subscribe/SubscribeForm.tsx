@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId, useState, type FormEvent } from "react";
 import { channelOf, readAttribution } from "@/lib/analytics/attribution";
 import { useLang } from "@/components/i18n/LangProvider";
-import { track } from "@/lib/analytics/umami";
+import { errorCode, track, trackError } from "@/lib/analytics/umami";
 import { TYPE_LABELS } from "@/lib/email/copy";
 import type { Lang } from "@/lib/i18n/lang";
 import { CONSENT_TEXT, KERBSIDE_TOPICS, STATION_TOPICS, type Topic } from "@/lib/subscriptions/topics";
@@ -73,7 +73,7 @@ export function SubscribeForm({
           website,
         }),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) throw new Error(`Subscribe failed (${res.status})`);
       setStatus("done");
       track("subscribe_submit", {
         source,
@@ -84,7 +84,8 @@ export function SubscribeForm({
         ...(attribution.utmCampaign ? { utm_campaign: attribution.utmCampaign } : {}),
         ...(attribution.utmContent ? { post: attribution.utmContent } : {}),
       });
-    } catch {
+    } catch (e) {
+      trackError("subscribe_api", errorCode(e));
       setStatus("error");
     }
   }
