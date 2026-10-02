@@ -5,8 +5,13 @@ import type { ReportPeriod } from "./period";
  * Paths follow @umami/api-client (API 3.3.x). Every call is optional: a
  * failure is recorded in `errors` and the rest of the snapshot still saves.
  *
- * Env: UMAMI_API_KEY (Umami Cloud → Settings → API keys), the website id from
- * UMAMI_WEBSITE_ID or NEXT_PUBLIC_UMAMI_WEBSITE_ID, optional UMAMI_API_URL.
+ * Two ways to sign in:
+ *   self-hosted (ours): UMAMI_API_URL=https://<umami-host>/api plus
+ *     UMAMI_USERNAME / UMAMI_PASSWORD of a view-only user; each run logs in
+ *     (POST /auth/login) and uses the returned token.
+ *   Umami Cloud (Pro plan): UMAMI_API_KEY; UMAMI_API_URL defaults to
+ *     https://api.umami.is/v1.
+ * Website id: UMAMI_WEBSITE_ID, else NEXT_PUBLIC_UMAMI_WEBSITE_ID.
  */
 
 export interface Item {
@@ -65,17 +70,31 @@ export const PROPERTIES: readonly (readonly [string, string])[] = [
 
 const TOP_TYPES = ["referrer", "path", "device", "country", "city"] as const;
 
+export type UmamiAuth = { kind: "apiKey"; apiKey: string } | { kind: "login"; username: string; password: string };
+
 export interface UmamiConfig {
-  apiKey: string;
+  auth: UmamiAuth;
   websiteId: string;
+  /** API root without trailing slash: https://<host>/api (self-hosted) or https://api.umami.is/v1 (Cloud). */
   baseUrl: string;
 }
 
+const CLOUD_API = "https://api.umami.is/v1";
+
+/**
+ * Reads the Umami settings from the environment. Login (self-hosted) wins
+ * over an API key; self-hosted needs UMAMI_API_URL. Null when not configured.
+ */
 export function umamiConfig(env: Record<string, string | undefined> = process.env): UmamiConfig | null {
-  const apiKey = env.UMAMI_API_KEY;
   const websiteId = env.UMAMI_WEBSITE_ID || env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
-  if (!apiKey || !websiteId) return null;
-  return { apiKey, websiteId, baseUrl: (env.UMAMI_API_URL || "https://api.umami.is/v1").replace(/\/$/, "") };
+  if (!websiteId) return null;
+  const trim = (u: string) => u.replace(/\/+$/, "");
+  if (env.UMAMI_USERNAME && env.UMAMI_PASSWORD) {
+    if (!env.UMAMI_API_URL) return null; // a self-hosted login needs its host
+    return { auth: { kind: "login", username: env.UMAMI_USERNAME, password: env.UMAMI_PASSWORD }, websiteId, baseUrl: trim(env.UMAMI_API_URL) };
+  }
+  if (env.UMAMI_API_KEY) return { auth: { kind: "apiKey", apiKey: env.UMAMI_API_KEY }, websiteId, baseUrl: trim(env.UMAMI_API_URL || CLOUD_API) };
+  return null;
 }
 
 /** A number from `5`, `"5"` or `{ value: 5 }` (Umami v2 and v3 shapes differ). */
@@ -102,6 +121,27 @@ export function toItems(rows: unknown): Item[] {
 
 type Fetch = typeof fetch;
 
+/**
+ * Request headers for the API. Self-hosted: logs in once per run and sends
+ * the token. Throws with a short reason when the login is refused.
+ */
+export async function authHeaders(cfg: UmamiConfig, fetchImpl: Fetch = fetch): Promise<Record<string, string>> {
+  if (cfg.auth.kind === "apiKey") {
+    // Umami Cloud documents the Bearer scheme; older accounts used x-umami-api-key.
+    return { Authorization: `Bearer ${cfg.auth.apiKey}`, "x-umami-api-key": cfg.auth.apiKey };
+  }
+  const res = await fetchImpl(`${cfg.baseUrl}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ username: cfg.auth.username, password: cfg.auth.password }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error(`login refused (HTTP ${res.status}); check UMAMI_USERNAME / UMAMI_PASSWORD and UMAMI_API_URL`);
+  const json = (await res.json().catch(() => ({}))) as { token?: unknown };
+  if (typeof json.token !== "string" || !json.token) throw new Error("login answered without a token; is UMAMI_API_URL the /api root?");
+  return { Authorization: `Bearer ${json.token}` };
+}
+
 /** Runs `tasks` with at most `limit` in flight (the API allows 50 calls per 15 s). */
 async function pool<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
   const out: T[] = new Array(tasks.length);
@@ -123,17 +163,19 @@ export async function collectUmami(
   fetchImpl: Fetch = fetch,
 ): Promise<UmamiWeek | null> {
   const base = { startAt: String(period.start.getTime()), endAt: String(period.end.getTime() - 1), timezone: "Europe/Zurich" };
+  let auth: Record<string, string>;
+  try {
+    auth = await authHeaders(cfg, fetchImpl);
+  } catch (e) {
+    errors.push({ source: "umami", call: "login", message: e instanceof Error ? e.message : String(e) });
+    return null;
+  }
 
   async function get(call: string, path: string, params: Record<string, string> = {}): Promise<unknown> {
     const url = `${cfg.baseUrl}/websites/${cfg.websiteId}${path}?${new URLSearchParams({ ...base, ...params })}`;
     try {
       const res = await fetchImpl(url, {
-        headers: {
-          Accept: "application/json",
-          // Umami Cloud documents the Bearer scheme; older accounts used x-umami-api-key.
-          Authorization: `Bearer ${cfg.apiKey}`,
-          "x-umami-api-key": cfg.apiKey,
-        },
+        headers: { Accept: "application/json", ...auth },
         signal: AbortSignal.timeout(20_000),
       });
       if (!res.ok) {
@@ -190,7 +232,7 @@ export async function collectUmami(
   ];
   await pool(tasks, 4);
   if (errors.length - failedBefore > tasks.length / 2) {
-    errors.push({ source: "umami", message: "More than half of the Umami calls failed; check the API plan limits (backlog A9)." });
+    errors.push({ source: "umami", message: "More than half of the Umami calls failed; check the Umami user's access to this website." });
   }
   return week;
 }

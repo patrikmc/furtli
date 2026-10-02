@@ -109,11 +109,14 @@ export function markdownToBlocks(md: string): Block[] {
   return blocks;
 }
 
+/** The page title in Reviews; also how an earlier export of the same week is found. */
+export const reviewTitle = (week: string) => `Weekly – ${week}`;
+
 /** Reviews database properties (number columns stay empty when a source had no data). */
 export function reviewProperties(s: ReportSummary): Record<string, unknown> {
   const num = (v: number | null) => ({ number: v });
   return {
-    Review: { title: rt(`Weekly – ${s.week}`) },
+    Review: { title: rt(reviewTitle(s.week)) },
     Type: { select: { name: "Weekly" } },
     Date: { date: { start: s.firstDay, end: s.lastDay } },
     Visitors: num(s.visitors),
@@ -138,22 +141,34 @@ async function call(cfg: NotionConfig, method: string, path: string, body: unkno
   return json;
 }
 
+/** Pages in Reviews whose title is exactly `title` (earlier exports of the same week). */
+export async function findPagesByTitle(cfg: NotionConfig, title: string, fetchImpl: Fetch = fetch): Promise<string[]> {
+  const res = await call(
+    cfg,
+    "POST",
+    `/data_sources/${cfg.dataSourceId}/query`,
+    { filter: { property: "Review", title: { equals: title } }, page_size: 10 },
+    fetchImpl,
+  );
+  const results = Array.isArray(res.results) ? (res.results as { id?: unknown }[]) : [];
+  return results.map((r) => String(r.id)).filter((id) => id && id !== "undefined");
+}
+
 /**
- * Creates the week's page in Reviews and returns its id. With `replacePageId`
- * the earlier export of the same week is moved to the trash first.
+ * Creates the week's page in Reviews. An earlier export of the same week is
+ * found by its title ("Weekly – 2026-W40") and moved to Notion's trash first,
+ * so re-exporting never duplicates a week and nothing is written back to our
+ * database. Pages you renamed by hand are left alone.
  */
 export async function exportToNotion(
   markdown: string,
   summary: ReportSummary,
   cfg: NotionConfig,
-  opts: { replacePageId?: string | null; fetchImpl?: Fetch } = {},
-): Promise<{ pageId: string; url: string | null }> {
+  opts: { fetchImpl?: Fetch } = {},
+): Promise<{ pageId: string; url: string | null; replaced: number }> {
   const fetchImpl = opts.fetchImpl ?? fetch;
-  if (opts.replacePageId) {
-    await call(cfg, "PATCH", `/pages/${opts.replacePageId}`, { in_trash: true }, fetchImpl).catch(() => {
-      // Already deleted by hand: nothing to replace.
-    });
-  }
+  const earlier = await findPagesByTitle(cfg, reviewTitle(summary.week), fetchImpl);
+  for (const id of earlier) await call(cfg, "PATCH", `/pages/${id}`, { in_trash: true }, fetchImpl);
   const blocks = markdownToBlocks(markdown);
   const page = await call(
     cfg,
@@ -170,5 +185,5 @@ export async function exportToNotion(
   for (let i = BATCH; i < blocks.length; i += BATCH) {
     await call(cfg, "PATCH", `/blocks/${pageId}/children`, { children: blocks.slice(i, i + BATCH) }, fetchImpl);
   }
-  return { pageId, url: typeof page.url === "string" ? page.url : null };
+  return { pageId, url: typeof page.url === "string" ? page.url : null, replaced: earlier.length };
 }

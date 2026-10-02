@@ -260,7 +260,11 @@ export const weeklyMetrics = pgTable("weekly_metrics", {
   derived: jsonb("derived"),
   /** Sources or calls that failed: shown as data gaps in the report. */
   errors: jsonb("errors").notNull().default(sql`'[]'::jsonb`),
-  /** Page in the Notion Reviews database, once exported. */
+  /**
+   * Unused since 2 Oct 2026: the Notion export finds an earlier page by its
+   * title instead, so the Mac's database login can be read-only. Kept to avoid
+   * changing migration 0003; drop it in a later migration.
+   */
   notionPageId: text("notion_page_id"),
   generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
 });

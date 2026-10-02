@@ -3,7 +3,7 @@ import { fixtureSnapshot } from "./fixtures";
 import { parseSources } from "./run";
 import { defaultSources, mergeSnapshot } from "./snapshot";
 
-const cfg = { apiKey: "k", websiteId: "w", baseUrl: "https://api.umami.is/v1" };
+const cfg = { auth: { kind: "apiKey" as const, apiKey: "k" }, websiteId: "w", baseUrl: "https://api.umami.is/v1" };
 
 describe("sources", () => {
   it("collects Neon by default and Umami only when its API is configured", () => {
@@ -17,7 +17,7 @@ describe("sources", () => {
 });
 
 describe("mergeSnapshot", () => {
-  const stored = { ...fixtureSnapshot(), errors: [{ source: "umami" as const, message: "HTTP 500" }], notionPageId: "page-1" };
+  const stored = { ...fixtureSnapshot(), errors: [{ source: "umami" as const, message: "HTTP 500" }] };
 
   it("a Neon-only run replaces the Neon part and keeps the stored Umami part and its gaps", () => {
     const fresh = { ...fixtureSnapshot(), umami: null, neon: { ...stored.neon!, subscribers: { ...stored.neon!.subscribers, signedUp: 99 } }, errors: [] };
@@ -26,7 +26,6 @@ describe("mergeSnapshot", () => {
     expect(m.neon?.subscribers.signedUp).toBe(99);
     expect(m.errors).toEqual([{ source: "umami", message: "HTTP 500" }]);
     expect(m.derived.activationPct).toBe(60); // recomputed from the kept Umami part
-    expect(m.notionPageId).toBe("page-1");
   });
 
   it("an Umami run clears old Umami gaps and keeps Neon", () => {

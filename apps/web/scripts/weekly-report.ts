@@ -17,7 +17,9 @@ import { latestSnapshot } from "@/lib/analytics/weekly/snapshot";
  *   pnpm weekly-report --out report.md         write Markdown to a file (--out report.txt: terminal text)
  *   pnpm weekly-report --json                  snapshot + history + summary + markdown
  *   pnpm weekly-report --no-color              terminal style without colour (also NO_COLOR=1, or when piped)
- *   pnpm weekly-report --notion                create/replace the page in Notion Reviews (NOTION_TOKEN)
+ *   pnpm weekly-report --notion                create the page in Notion Reviews (NOTION_TOKEN); an earlier
+ *                                              export of the same week (same title) goes to Notion's trash
+ * Read-only on the database: runs with a login that can only SELECT weekly_metrics.
  */
 async function main() {
   const args = parseArgs(process.argv.slice(2), ["--notion", "--json", "--md", "--no-color"], ["--week", "--out"]);
@@ -31,7 +33,7 @@ async function main() {
     const cfg = notionConfig();
     if (!cfg) throw new Error("NOTION_TOKEN is not set.");
     const page = await exportReport(db, week, cfg);
-    console.log(`Notion: ${page.url ?? page.pageId}`);
+    console.log(`Notion: ${page.url ?? page.pageId}${page.replaced ? ` (replaced ${page.replaced} earlier export${page.replaced > 1 ? "s" : ""})` : ""}`);
     return;
   }
   const report = await buildReport(db, week);

@@ -1,4 +1,4 @@
-import { desc, eq, inArray, weeklyMetrics, type Database } from "db";
+import { desc, inArray, weeklyMetrics, type Database } from "db";
 import { collectNeon, type NeonWeek } from "./neon";
 import type { ReportPeriod } from "./period";
 import { collectUmami, type SnapshotError, type UmamiConfig, type UmamiWeek } from "./umami-api";
@@ -30,7 +30,6 @@ export interface Snapshot {
   derived: Derived;
   errors: SnapshotError[];
   generatedAt: string;
-  notionPageId?: string | null;
 }
 
 const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : null);
@@ -126,11 +125,10 @@ export function mergeSnapshot(fresh: Snapshot, stored: Snapshot | null | undefin
     neon,
     derived: derive(umami, neon),
     errors: [...stored.errors.filter((e) => !sources.includes(e.source as Source)), ...fresh.errors],
-    notionPageId: stored.notionPageId,
   };
 }
 
-/** Insert or replace the week's row (callers merge first, see mergeSnapshot; the Notion page id is kept). */
+/** Insert or replace the week's row (callers merge first, see mergeSnapshot). */
 export async function saveSnapshot(db: Database, s: Snapshot): Promise<void> {
   const data = {
     startsAt: new Date(s.startsAt),
@@ -159,7 +157,6 @@ function fromRow(r: typeof weeklyMetrics.$inferSelect): Snapshot {
     derived: r.derived as Derived,
     errors: (r.errors as SnapshotError[]) ?? [],
     generatedAt: r.generatedAt.toISOString(),
-    notionPageId: r.notionPageId,
   };
 }
 
@@ -174,8 +171,4 @@ export async function loadSnapshots(db: Database, weeks: string[]): Promise<Map<
 export async function latestSnapshot(db: Database): Promise<Snapshot | null> {
   const [r] = await db.select().from(weeklyMetrics).orderBy(desc(weeklyMetrics.endsAt)).limit(1);
   return r ? fromRow(r) : null;
-}
-
-export async function setNotionPage(db: Database, week: string, pageId: string): Promise<void> {
-  await db.update(weeklyMetrics).set({ notionPageId: pageId }).where(eq(weeklyMetrics.week, week));
 }

@@ -10,17 +10,17 @@ import {
   loadSnapshots,
   mergeSnapshot,
   saveSnapshot,
-  setNotionPage,
   type Snapshot,
   type Source,
 } from "./snapshot";
 import type { UmamiConfig } from "./umami-api";
 
 /**
- * The Sunday job and its manual twins (`pnpm weekly-snapshot`, `pnpm weekly-report`):
- *   1. collect Umami + Neon for the week and upsert `weekly_metrics`
- *   2. (optional) render the report and export it to Notion
- * Shared by app/api/cron/weekly-snapshot and the scripts.
+ * Two separate jobs, run in two places:
+ *   collect (Vercel, Sunday cron; `pnpm weekly-snapshot` for local dev):
+ *     Umami + Neon for the week → upsert `weekly_metrics`. Never touches Notion.
+ *   report (the Mac, `pnpm weekly-report`): reads `weekly_metrics` only,
+ *     renders it and optionally exports it to Notion. Never writes to the database.
  */
 
 export function resolvePeriod(week?: string | null, now: Date = new Date()): ReportPeriod {
@@ -46,14 +46,12 @@ export interface SnapshotRunResult {
   saved: boolean;
   errors: Snapshot["errors"];
   summary: ReportSummary;
-  notion?: { pageId: string; url: string | null } | { error: string };
 }
 
 export async function runWeeklySnapshot(opts: {
   db: Database;
   period: ReportPeriod;
   umami: UmamiConfig | null;
-  notion?: NotionConfig | null;
   dryRun?: boolean;
   sources?: Source[];
 }): Promise<SnapshotRunResult> {
@@ -74,13 +72,6 @@ export async function runWeeklySnapshot(opts: {
     errors: fresh.errors,
     summary: summarize(snapshot),
   };
-  if (opts.notion && !opts.dryRun) {
-    try {
-      result.notion = await exportReport(opts.db, snapshot.week, opts.notion);
-    } catch (e) {
-      result.notion = { error: e instanceof Error ? e.message : String(e) };
-    }
-  }
   return result;
 }
 
@@ -103,11 +94,17 @@ export async function buildReport(
   };
 }
 
-/** Renders a stored week and creates (or replaces) its page in the Notion Reviews database. */
-export async function exportReport(db: Database, week: string, notion: NotionConfig): Promise<{ pageId: string; url: string | null }> {
+/**
+ * Renders a stored week and creates its page in the Notion Reviews database,
+ * replacing an earlier export of that week (found by title). Read-only on
+ * our side: works with a database login that can only SELECT weekly_metrics.
+ */
+export async function exportReport(
+  db: Database,
+  week: string,
+  notion: NotionConfig,
+): Promise<{ pageId: string; url: string | null; replaced: number }> {
   const report = await buildReport(db, week);
-  if (!report) throw new Error(`No snapshot stored for ${week}; run the snapshot first.`);
-  const page = await exportToNotion(report.markdown, report.summary, notion, { replacePageId: report.snapshot.notionPageId });
-  await setNotionPage(db, week, page.pageId);
-  return page;
+  if (!report) throw new Error(`No snapshot stored for ${week}; the Sunday collection hasn't run for it yet.`);
+  return exportToNotion(report.markdown, report.summary, notion);
 }

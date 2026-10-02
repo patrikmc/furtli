@@ -81,9 +81,11 @@ feature branch ──PR──▶ CI (ci, e2e) + preview in the staging project
    | `EMAIL_FROM` / `EMAIL_REPLY_TO` / `EMAIL_CONTACT_ADDRESS` | Config | as above |
    | `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | Config | Umami website id |
    | `NEXT_PUBLIC_UMAMI_DOMAINS` | Config | `furtli.ch,www.furtli.ch` |
-   | `UMAMI_API_KEY` | Secret | Umami Cloud API key (weekly snapshot) |
+   | `UMAMI_API_URL` | Config | `https://<umami-host>/api` (weekly snapshot) |
+   | `UMAMI_USERNAME` / `UMAMI_PASSWORD` | Secret | the view-only Umami user |
    | `REPORT_SECRET` | Secret | random, for `/api/internal/weekly-report` |
-   | `NOTION_TOKEN` | Secret | optional: Notion integration for the weekly report export |
+
+   Never add `NOTION_TOKEN` here: the Notion export runs on the Mac only (see "Weekly report on the Mac").
 
    No `EMAIL_SUBJECT_PREFIX`. Don't connect the Neon integration to this project.
 4. Ignored Build Step: same command as staging (`APP_ENV=production` makes it build `release` only).
@@ -119,6 +121,47 @@ git push origin master   # staging project builds; Actions → CI runs ci ▶ e2
 # furtli-web.vercel.app switches once all three are green → log in with the tester password
 pnpm release             # production project builds; furtli.ch switches once CI is green
 ```
+
+### 6. Analytics: self-hosted Umami (separate Vercel project)
+
+Umami runs as its own Vercel project from our fork of `umami-software/umami`, with its own Neon database (EU region, separate from the app database). Set up 2 Oct 2026.
+
+- **Branch:** Vercel builds the `production` branch of the fork, which points at a Umami release tag (not upstream `master`).
+- **Env (Umami project):** `DATABASE_URL` (pooled), `APP_SECRET` (random, `openssl rand -hex 32`; never change it, never reuse it elsewhere), `TRACKER_SCRIPT_NAME` (custom script name, less ad-blocker friction), optional `DISABLE_TELEMETRY=1`.
+- **Users:** the admin password was changed on first login; the weekly snapshot uses a separate view-only user.
+- **App side (Furtli projects):** `NEXT_PUBLIC_UMAMI_SCRIPT_URL` = the self-hosted script URL; `NEXT_PUBLIC_UMAMI_WEBSITE_ID` = the website id from the self-hosted instance (one website per environment). Both are baked in at build time: redeploy after changing them.
+
+**Upgrade (monthly, or for a security release).** Read the release notes first (database changes run automatically during the build):
+
+```
+git fetch upstream --tags
+git checkout production
+git merge --ff-only v3.y.z      # the new release tag
+git push origin production      # Vercel builds and deploys it
+```
+
+Afterwards: log in, open Realtime, and check that events from furtli.ch still arrive.
+
+**Backups.** Neon's point-in-time restore covers the Umami database within the plan's restore window. Before a major upgrade, create a Neon branch of the Umami database as a snapshot; if the upgrade fails, point `DATABASE_URL` at the branch (or restore) and redeploy the previous tag.
+
+### 7. Weekly report on the Mac (read-only)
+
+Vercel collects; the Mac only reads. `pnpm weekly-report` (and `--notion`) reads the `weekly_metrics` table and nothing else, so the Mac uses a login that can do exactly that. Create it once in the Neon SQL editor of the production database (owner role), with a long random password:
+
+```sql
+CREATE ROLE furtli_report WITH LOGIN PASSWORD '<long random password>';
+GRANT CONNECT ON DATABASE neondb TO furtli_report;   -- your database name
+GRANT USAGE ON SCHEMA public TO furtli_report;
+GRANT SELECT ON TABLE weekly_metrics TO furtli_report;
+```
+
+Its connection string (direct or pooled) goes into the Mac's local env file as `DATABASE_URL`, next to `NOTION_TOKEN`. Check it: `pnpm weekly-report` works; `pnpm weekly-snapshot` against production fails with "permission denied" (by design). Backfill a production week through Vercel instead:
+
+```
+curl -H "Authorization: Bearer <production CRON_SECRET>" "https://furtli.ch/api/cron/weekly-snapshot?week=2026-W40"
+```
+
+Re-exporting a week to Notion is safe: the export finds the earlier page by its title ("Weekly – 2026-W40") and moves it to Notion's trash before creating the new one.
 
 ## Personal data (revDSG)
 
