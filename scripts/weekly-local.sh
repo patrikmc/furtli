@@ -1,13 +1,17 @@
 #!/bin/bash
-# Furtli weekly report: the local half of the weekly pipeline (runs on the Mac, never on Vercel).
-# Vercel collects the week into Neon every Sunday; this script reads it (read-only),
-# saves a Markdown copy and creates the week's page in the Notion Reviews database.
+# Furtli weekly report: renders a stored week and exports it (runs on the Mac, never on Vercel).
+# Responsibility: REPORT only (read the database, show / save Markdown / create the Notion page).
+# Vercel collects the week into Neon every Sunday; this script reads it (read-only) and
+# shows it in the terminal, or saves a Markdown copy and creates the week's Notion page.
 #
-#   scripts/weekly-local.sh                     the week that just ended: save Markdown + export to Notion
+#   scripts/weekly-local.sh                     the week that just ended, in the terminal (nothing written)
 #                                               (fails clearly if Vercel hasn't collected it yet)
-#   scripts/weekly-local.sh --week 2026-W40     a given week
-#   scripts/weekly-local.sh --no-notion         save the Markdown copy only
-#   scripts/weekly-local.sh setup               store the two secrets in the macOS Keychain
+#   scripts/weekly-local.sh --week 2026-W40     a given week (also: --week current, the running week once
+#                                               it has been collected with scripts/weekly-collect.sh)
+#   scripts/weekly-local.sh --save              also save reports/weekly/<week>.md
+#   scripts/weekly-local.sh --notion            save the Markdown copy and create the page in Notion Reviews
+#                                               (the Sunday schedule runs with --notion)
+#   scripts/weekly-local.sh setup               store the two report secrets in the macOS Keychain
 #   scripts/weekly-local.sh check               show the setup and print the report in the terminal
 #   scripts/weekly-local.sh install-schedule [HH:MM]   run every Sunday, default 07:00 local time, so the
 #                                               report is ready for the Sunday review (launchd; the schedule
@@ -17,6 +21,7 @@
 # Secrets: macOS Keychain, account "furtli". Environment variables of the same name win (e.g. from n8n).
 #   furtli-report-database-url -> DATABASE_URL   read-only "furtli_report" login (docs/DEPLOYMENT.md §7)
 #   furtli-notion-token        -> NOTION_TOKEN   Notion integration with access to Reviews only
+# Collecting data into the database is not this script's job: see scripts/weekly-collect.sh.
 # Output stays inside the repository: reports in reports/weekly/<week>.md, logs in
 # reports/weekly/logs/ (git-ignored). Nothing is written elsewhere in your home folder;
 # the only file outside the repo is the launchd schedule itself (install-schedule).
@@ -80,14 +85,25 @@ report() { # runs pnpm weekly-report in apps/web with the given arguments
 }
 
 cmd_run() {
-  local week_args=(--last-complete) notion=1
+  local week_args=(--last-complete) notion=0 save=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --week) [[ $# -ge 2 ]] || fail "--week needs a value, e.g. 2026-W40"; week_args=(--week "$2"); shift 2 ;;
-      --no-notion) notion=0; shift ;;
+      --week) [[ $# -ge 2 ]] || fail "--week needs a value, e.g. 2026-W40 or current"; week_args=(--week "$2"); shift 2 ;;
+      --notion) notion=1; save=1; shift ;;
+      --save) save=1; shift ;;
+      --no-notion) shift ;; # the default now; kept so older calls still work
       *) fail "Unknown option '$1'. See the header of $0." ;;
     esac
   done
+
+  # Default: show the report in the terminal, write nothing, no log.
+  if [[ $save -eq 0 ]]; then
+    require_tools
+    load_secrets
+    unset NO_COLOR # colours in the terminal
+    report "${week_args[@]}" || exit 1
+    return 0
+  fi
 
   mkdir -p "$LOG_DIR"
   exec > >(tee -a "$LOG_FILE") 2>&1
@@ -102,7 +118,7 @@ cmd_run() {
   require_tools
   if [[ $notion -eq 1 ]]; then load_secrets notion; else load_secrets; fi
 
-  local args=("${week_args[@]+"${week_args[@]}"}" --out-dir "$REPORTS_DIR")
+  local args=("${week_args[@]}" --out-dir "$REPORTS_DIR")
   [[ $notion -eq 1 ]] && args+=(--notion)
 
   local out
@@ -189,6 +205,7 @@ cmd_install_schedule() {
   <array>
     <string>/bin/bash</string>
     <string>$REPO/scripts/weekly-local.sh</string>
+    <string>--notion</string>
   </array>
   <!-- Sundays $at local time, after Vercel's collection. If the Mac is asleep then, launchd runs it on wake (not when switched off). -->
   <key>StartCalendarInterval</key>
@@ -220,6 +237,6 @@ case "${1:-}" in
   check) cmd_check ;;
   install-schedule) cmd_install_schedule "${2:-}" ;;
   uninstall-schedule) cmd_uninstall_schedule ;;
-  -h | --help) sed -n '2,20p' "$0" ;;
+  -h | --help) sed -n '2,25p' "$0" ;;
   *) cmd_run "$@" ;;
 esac

@@ -97,6 +97,14 @@ export function lastCompletePeriod(now: Date = new Date()): ReportPeriod {
   return periodEndingOn(addDays(today, -(weekday + 1)));
 }
 
+/** The Sunday–Saturday week containing `now` (still running until Saturday 24:00): for drafts. */
+export function currentPeriod(now: Date = new Date()): ReportPeriod {
+  const today = zurichDate(now);
+  const [y, m, d] = today.split("-").map(Number);
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // Sun = 0 … Sat = 6
+  return periodEndingOn(addDays(today, 6 - weekday));
+}
+
 /** "2026-W40" → the Sunday–Saturday period whose Saturday lies in that ISO week. */
 export function periodForWeek(week: string): ReportPeriod {
   const m = /^(\d{4})-W(\d{2})$/.exec(week);

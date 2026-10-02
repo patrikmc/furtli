@@ -19,6 +19,7 @@ import { umamiConfig } from "@/lib/analytics/weekly/umami-api";
  * (Vercel cron or manual), the outcome, and why it was refused if it was. A run only replaces the parts
  * it collected, so Neon data and separately imported Umami data coexist.
  *   ?week=2026-W40  re-run a given week (replaces the collected parts)
+ *   ?week=current   the running week, as a draft (Sunday's run replaces it); from the Mac: weekly-local.sh collect
  *   ?sources=neon   only these sources (neon, umami, neon,umami or all)
  *   ?dryRun=1       collect and return, save nothing
  * Production backfill: curl -H "Authorization: Bearer $CRON_SECRET" "https://furtli.ch/api/cron/weekly-snapshot?week=2026-W40"

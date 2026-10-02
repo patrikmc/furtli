@@ -157,14 +157,26 @@ GRANT SELECT ON TABLE weekly_metrics TO furtli_report;
 
 Its connection string (`postgresql://furtli_report:<password>@<neon-host>/neondb?sslmode=require`, host from the production string in Neon → Connect) and the Notion integration secret live in the Mac's **Keychain**, never in `.env.local` (that stays on the local Docker database) and never in Vercel.
 
-`scripts/weekly-local.sh` runs the whole Mac side (also `pnpm weekly-local`):
+Two commands, one job each:
+
+- **Collect** (Umami + app database → `weekly_metrics`): Vercel's Sunday cron; from the command line `scripts/weekly-collect.sh` (also `pnpm weekly-collect`), which calls the Vercel route, so the Mac's database login stays read-only.
+
+```bash
+scripts/weekly-collect.sh setup            # once: CRON_SECRET + protection bypass token of the target project (Keychain)
+scripts/weekly-collect.sh                  # the running week now, as a draft (Sunday's run replaces it)
+scripts/weekly-collect.sh --week 2026-W39 --dry-run   # a given week; --dry-run saves nothing
+```
+
+- **Report** (`weekly_metrics` → terminal / Markdown / Notion): `scripts/weekly-local.sh` (also `pnpm weekly-local`):
 
 ```
 scripts/weekly-local.sh setup              # once: store both secrets in the Keychain (typed, never shown)
 scripts/weekly-local.sh check              # shows the setup, tests the Notion token, prints the latest week
-scripts/weekly-local.sh                    # the week that just ended: save reports/weekly/<week>.md (in the repo) + export to Notion
-scripts/weekly-local.sh --week 2026-W40    # a given week; --no-notion = Markdown copy only
-scripts/weekly-local.sh install-schedule   # launchd: every Sunday 07:00, ready for the Sunday review (other time: install-schedule 07:30)
+scripts/weekly-local.sh                    # the week that just ended, in the terminal (writes nothing)
+scripts/weekly-local.sh --week 2026-W40    # a given week; --week current = the running week (draft)
+scripts/weekly-local.sh --save             # also save reports/weekly/<week>.md (in the repo)
+scripts/weekly-local.sh --notion           # save the Markdown copy + create the page in Notion Reviews
+scripts/weekly-local.sh install-schedule   # launchd: every Sunday 07:00 with --notion, ready for the Sunday review (other time: install-schedule 07:30)
 scripts/weekly-local.sh uninstall-schedule
 ```
 

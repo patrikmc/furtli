@@ -82,16 +82,28 @@ export interface UmamiConfig {
 const CLOUD_API = "https://api.umami.is/v1";
 
 /**
+ * Normalizes UMAMI_API_URL for a self-hosted instance, so "stats.furtli.ch",
+ * "https://stats.furtli.ch" and "https://stats.furtli.ch/api/" all become
+ * "https://stats.furtli.ch/api" (the API lives under /api on self-hosted Umami).
+ */
+export function selfHostedApiUrl(raw: string): string {
+  let url = raw.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  if (!/\/api$/i.test(url)) url = `${url}/api`;
+  return url;
+}
+
+/**
  * Reads the Umami settings from the environment. Login (self-hosted) wins
  * over an API key; self-hosted needs UMAMI_API_URL. Null when not configured.
  */
 export function umamiConfig(env: Record<string, string | undefined> = process.env): UmamiConfig | null {
   const websiteId = env.UMAMI_WEBSITE_ID || env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
   if (!websiteId) return null;
-  const trim = (u: string) => u.replace(/\/+$/, "");
+  const trim = (u: string) => u.trim().replace(/\/+$/, "");
   if (env.UMAMI_USERNAME && env.UMAMI_PASSWORD) {
     if (!env.UMAMI_API_URL) return null; // a self-hosted login needs its host
-    return { auth: { kind: "login", username: env.UMAMI_USERNAME, password: env.UMAMI_PASSWORD }, websiteId, baseUrl: trim(env.UMAMI_API_URL) };
+    return { auth: { kind: "login", username: env.UMAMI_USERNAME, password: env.UMAMI_PASSWORD }, websiteId, baseUrl: selfHostedApiUrl(env.UMAMI_API_URL) };
   }
   if (env.UMAMI_API_KEY) return { auth: { kind: "apiKey", apiKey: env.UMAMI_API_KEY }, websiteId, baseUrl: trim(env.UMAMI_API_URL || CLOUD_API) };
   return null;
@@ -136,7 +148,20 @@ export async function authHeaders(cfg: UmamiConfig, fetchImpl: Fetch = fetch): P
     body: JSON.stringify({ username: cfg.auth.username, password: cfg.auth.password }),
     signal: AbortSignal.timeout(20_000),
   });
-  if (!res.ok) throw new Error(`login refused (HTTP ${res.status}); check UMAMI_USERNAME / UMAMI_PASSWORD and UMAMI_API_URL`);
+  if (!res.ok) {
+    // Say who refused: Umami answers with a short text/JSON body, a Vercel
+    // protection or error page with HTML. Never includes the password.
+    const body = (await res.text().catch(() => "")).replace(/\s+/g, " ").trim();
+    const from = /<html|<!doctype/i.test(body) ? "an HTML page (not Umami: Vercel protection or wrong host?)" : `Umami: ${body.slice(0, 120) || "(empty body)"}`;
+    // Safe hints to compare with what works elsewhere: lengths and stray
+    // whitespace (a common paste error in env settings), never the value.
+    const { username, password } = cfg.auth;
+    const ws = (v: string) => (v !== v.trim() ? ", has leading/trailing whitespace" : "");
+    const hints = `username "${username}" (${username.length} chars${ws(username)}), password ${password.length} chars${ws(password)}`;
+    throw new Error(
+      `login refused (HTTP ${res.status}) at ${cfg.baseUrl}/auth/login, answered by ${from}; sent ${hints}; check UMAMI_USERNAME / UMAMI_PASSWORD and UMAMI_API_URL`,
+    );
+  }
   const json = (await res.json().catch(() => ({}))) as { token?: unknown };
   if (typeof json.token !== "string" || !json.token) throw new Error("login answered without a token; is UMAMI_API_URL the /api root?");
   return { Authorization: `Bearer ${json.token}` };
@@ -179,7 +204,15 @@ export async function collectUmami(
         signal: AbortSignal.timeout(20_000),
       });
       if (!res.ok) {
-        errors.push({ source: "umami", call, message: `HTTP ${res.status}` });
+        // Logged in but refused: the Umami user can't see this website (a
+        // non-admin user only sees its own websites or those of its teams).
+        const hint =
+          res.status === 401 || res.status === 403
+            ? ` for website ${cfg.websiteId}: the Umami user has no access to it (share it via a team, or check UMAMI_WEBSITE_ID)`
+            : res.status === 404
+              ? ` for website ${cfg.websiteId}: no such website on this Umami (check UMAMI_WEBSITE_ID)`
+              : "";
+        errors.push({ source: "umami", call, message: `HTTP ${res.status}${hint}` });
         return undefined;
       }
       return await res.json();

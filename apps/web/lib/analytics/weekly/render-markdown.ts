@@ -42,6 +42,7 @@ function block(b: Block): string[] {
 export function renderMarkdown(m: ReportModel): string {
   const out: string[] = [`# Furtli weekly · ${m.week} · ${m.range}`, ""];
   for (const line of m.meta) out.push(line, "");
+  if (m.draft) out.push(`> **${m.draft}**`, "");
   if (m.gaps.length) {
     out.push("> **Data gaps**");
     for (const g of m.gaps) out.push(`> ${g}`);

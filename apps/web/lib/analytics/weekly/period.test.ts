@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isoWeek, lastCompletePeriod, periodForWeek, previousWeeks, zurichMidnight } from "./period";
+import { currentPeriod, isoWeek, lastCompletePeriod, periodForWeek, previousWeeks, zurichMidnight } from "./period";
 
 describe("reporting week (Sunday–Saturday, Europe/Zurich)", () => {
   it("on Sunday morning reports the week that just ended", () => {
@@ -32,5 +32,14 @@ describe("reporting week (Sunday–Saturday, Europe/Zurich)", () => {
   it("rejects malformed weeks", () => {
     expect(() => periodForWeek("2026-40")).toThrow();
     expect(() => periodForWeek("2025-W53")).toThrow();
+  });
+});
+
+describe("currentPeriod", () => {
+  it("is the running Sunday–Saturday week, labelled by its Saturday", () => {
+    const p = currentPeriod(new Date("2026-10-02T10:00:00Z")); // Fri 2 Oct
+    expect(p).toMatchObject({ week: "2026-W40", firstDay: "2026-09-27", lastDay: "2026-10-03" });
+    expect(currentPeriod(new Date("2026-10-03T21:30:00Z")).week).toBe("2026-W40"); // Sat 23:30 CEST
+    expect(currentPeriod(new Date("2026-10-03T22:30:00Z")).week).toBe("2026-W41"); // Sun 00:30 CEST: new week
   });
 });

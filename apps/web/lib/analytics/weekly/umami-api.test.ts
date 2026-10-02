@@ -37,6 +37,9 @@ describe("Umami response shapes", () => {
     const env = { UMAMI_USERNAME: "report", UMAMI_PASSWORD: "pw", NEXT_PUBLIC_UMAMI_WEBSITE_ID: "w" };
     expect(umamiConfig(env)).toBeNull(); // self-hosted needs its URL
     expect(umamiConfig({ ...env, UMAMI_API_URL: "https://stats.example.ch/api/" })).toMatchObject({ auth: { kind: "login", username: "report" }, baseUrl: "https://stats.example.ch/api" });
+    for (const url of ["stats.example.ch", "https://stats.example.ch", "https://stats.example.ch/", " stats.example.ch/api "]) {
+      expect(umamiConfig({ ...env, UMAMI_API_URL: url })?.baseUrl).toBe("https://stats.example.ch/api");
+    }
     expect(umamiConfig({ ...env, UMAMI_API_URL: "https://x/api", UMAMI_WEBSITE_ID: "other" })?.websiteId).toBe("other");
   });
 });
@@ -67,7 +70,7 @@ describe("collectUmami", () => {
     const errors: SnapshotError[] = [];
     expect(await collectUmami(p, cfg, errors, impl)).toBeNull();
     expect(calls).toHaveLength(1);
-    expect(errors).toEqual([{ source: "umami", call: "stats", message: "HTTP 403" }]);
+    expect(errors).toEqual([{ source: "umami", call: "stats", message: expect.stringMatching(/^HTTP 403 for website .*no access/) }]);
   });
 
   it("keeps what worked when single calls fail", async () => {

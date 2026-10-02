@@ -25,7 +25,8 @@
     "attribution": "pnpm --filter web attribution",
     "weekly-snapshot": "pnpm --filter web weekly-snapshot",
     "weekly-report": "pnpm --filter web weekly-report",
-    "weekly-local": "bash scripts/weekly-local.sh"
+    "weekly-local": "bash scripts/weekly-local.sh",
+    "weekly-collect": "bash scripts/weekly-collect.sh"
   },
   "dependencies": {
     "@neon/config": "^1.7.3",

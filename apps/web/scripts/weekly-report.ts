@@ -14,6 +14,7 @@ import { latestSnapshot } from "@/lib/analytics/weekly/snapshot";
  *
  *   pnpm weekly-report                         latest stored week, styled for the terminal
  *   pnpm weekly-report --week 2026-W40
+ *   pnpm weekly-report --week current          the running week (a draft; collect it first, see weekly-local.sh collect)
  *   pnpm weekly-report --last-complete         the week that just ended (Sun–Sat, Zurich); fails if it
  *                                              hasn't been collected yet instead of showing an older week
  *   pnpm weekly-report --md                    styled Markdown instead
@@ -34,7 +35,8 @@ async function main() {
   const db = getDb();
   if (opt("--week") && args.flags.has("--last-complete")) throw new Error("Use either --week or --last-complete.");
   const expected = args.flags.has("--last-complete") ? resolvePeriod(null).week : undefined;
-  const week = opt("--week") ?? expected ?? (await latestSnapshot(db))?.week;
+  const asked = opt("--week");
+  const week = (asked ? resolvePeriod(asked).week : undefined) ?? expected ?? (await latestSnapshot(db))?.week;
   if (!week) throw new Error("No weekly snapshot stored yet: the Sunday collection on Vercel hasn't run.");
   if (expected && !(await buildReport(db, expected))) {
     throw new Error(

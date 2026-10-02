@@ -58,6 +58,8 @@ export interface ReportModel {
   /** "27 Sep – 3 Oct 2026" */
   range: string;
   meta: string[];
+  /** Set when the numbers were collected before the week ended (Saturday 24:00). */
+  draft: string | null;
   gaps: string[];
   kpis: Kpi[];
   sections: Section[];
@@ -306,6 +308,10 @@ export function buildModel(s: Snapshot, history: Snapshot[] = []): ReportModel {
       sources,
       "Visitor counts from Umami are approximate (cookieless); subscriber numbers from the database are exact.",
     ],
+    draft:
+      new Date(s.generatedAt).getTime() < new Date(s.endsAt).getTime()
+        ? `Draft: collected ${utc(s.generatedAt)}, before the week ended. Numbers are partial; Sunday's collection replaces them.`
+        : null,
     gaps: s.errors.map((e) => `${e.source}${e.call ? ` (${e.call})` : ""}: ${e.message}`),
     kpis,
     sections,

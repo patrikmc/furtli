@@ -1,6 +1,6 @@
 import type { Database } from "db";
 import { exportToNotion, type NotionConfig } from "./notion";
-import { lastCompletePeriod, periodForWeek, previousWeeks, type ReportPeriod } from "./period";
+import { currentPeriod, lastCompletePeriod, periodForWeek, previousWeeks, type ReportPeriod } from "./period";
 import { renderReport, renderReportTerminal, summarize, type ReportSummary } from "./report";
 import type { TerminalOptions } from "./render-terminal";
 import {
@@ -23,8 +23,15 @@ import type { UmamiConfig } from "./umami-api";
  *     renders it and optionally exports it to Notion. Never writes to the database.
  */
 
+/**
+ * empty or "last" → the last complete week; "current" → the running week (a
+ * draft until Saturday 24:00); "2026-W40" → that week. Weeks that haven't
+ * started yet are refused (they would only collect zeros).
+ */
 export function resolvePeriod(week?: string | null, now: Date = new Date()): ReportPeriod {
-  return week ? periodForWeek(week) : lastCompletePeriod(now);
+  const p = !week || week === "last" ? lastCompletePeriod(now) : week === "current" ? currentPeriod(now) : periodForWeek(week);
+  if (p.start.getTime() > now.getTime()) throw new Error(`${p.week} hasn't started yet (it begins Sunday ${p.firstDay}).`);
+  return p;
 }
 
 /** "neon", "umami", "neon,umami" or "all" → sources; empty → the default for this configuration. */

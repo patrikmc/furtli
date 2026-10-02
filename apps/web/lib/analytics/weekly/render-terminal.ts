@@ -64,6 +64,12 @@ export function renderTerminal(m: ReportModel, opts: TerminalOptions = {}): stri
   for (const l of headerLines) out.push(`${c.dim("│")} ${pad(l, inner)} ${c.dim("│")}`);
   out.push(c.dim(`╰${"─".repeat(W - 2)}╯`), "");
 
+  // ── draft (collected before the week ended)
+  if (m.draft) {
+    for (const [i, l] of wrapText(m.draft, W - 4).entries()) out.push(`  ${i ? l : c.yellow(c.bold(l))}`);
+    out.push("");
+  }
+
   // ── data gaps
   if (m.gaps.length) {
     out.push(`  ${c.yellow(c.bold("▲ DATA GAPS"))}`);
