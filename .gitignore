@@ -45,3 +45,6 @@ _to_delete/
 
 # Vercel CLI (project link + pulled env files with secrets)
 .vercel/
+
+# Weekly report job: logs and run lock (the reports themselves in reports/weekly/ are up to you)
+reports/weekly/logs/

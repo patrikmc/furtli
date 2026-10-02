@@ -155,7 +155,24 @@ GRANT USAGE ON SCHEMA public TO furtli_report;
 GRANT SELECT ON TABLE weekly_metrics TO furtli_report;
 ```
 
-Its connection string (direct or pooled) goes into the Mac's local env file as `DATABASE_URL`, next to `NOTION_TOKEN`. Check it: `pnpm weekly-report` works; `pnpm weekly-snapshot` against production fails with "permission denied" (by design). Backfill a production week through Vercel instead:
+Its connection string (`postgresql://furtli_report:<password>@<neon-host>/neondb?sslmode=require`, host from the production string in Neon → Connect) and the Notion integration secret live in the Mac's **Keychain**, never in `.env.local` (that stays on the local Docker database) and never in Vercel.
+
+`scripts/weekly-local.sh` runs the whole Mac side (also `pnpm weekly-local`):
+
+```
+scripts/weekly-local.sh setup              # once: store both secrets in the Keychain (typed, never shown)
+scripts/weekly-local.sh check              # shows the setup, tests the Notion token, prints the latest week
+scripts/weekly-local.sh                    # the week that just ended: save reports/weekly/<week>.md (in the repo) + export to Notion
+scripts/weekly-local.sh --week 2026-W40    # a given week; --no-notion = Markdown copy only
+scripts/weekly-local.sh install-schedule   # launchd: every Sunday 07:00, ready for the Sunday review (other time: install-schedule 07:30)
+scripts/weekly-local.sh uninstall-schedule
+```
+
+**Sunday timing:** Vercel collects the week (Sun–Sat, Zurich) at 03:00 UTC (05:00–06:00 in summer, 04:00–05:00 in winter: Vercel may start a cron anywhere within its hour); the Mac renders and exports at 07:00, before the Sunday review. The Mac job asks for the week that just ended: if Vercel hasn't collected it, it fails with a notification instead of re-publishing last week (run the collection in Vercel → Settings → Cron Jobs, then `scripts/weekly-local.sh` again). If the Mac sleeps at 07:00, launchd runs the job on wake.
+
+Everything stays in the repository: reports in `reports/weekly/<week>.md`, logs in `reports/weekly/logs/` (`weekly-local.log`, `launchd.log`; git-ignored). The only file outside the repo is the launchd schedule in `~/Library/LaunchAgents/ch.furtli.weekly-report.plist`, which is where launchd requires it. A macOS notification on success and failure. With n8n instead of launchd: run the same script and pass `DATABASE_URL` / `NOTION_TOKEN` as environment variables from n8n's credentials (they take precedence over the Keychain).
+
+A wrong setup shows clearly: `pnpm weekly-snapshot` against production fails with "permission denied" (by design). Backfill a production week through Vercel instead:
 
 ```
 curl -H "Authorization: Bearer <production CRON_SECRET>" "https://furtli.ch/api/cron/weekly-snapshot?week=2026-W40"
