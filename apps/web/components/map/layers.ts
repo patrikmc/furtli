@@ -20,7 +20,6 @@ export const LAYER = {
   focusFill: "focus-fill",
   focusLine: "focus-line",
   radiusFill: "radius-fill",
-  radiusLine: "radius-line",
 } as const;
 
 const INK = "#17223B";
@@ -148,14 +147,9 @@ export const focusLine: Omitted<LineLayerSpecification> = {
   paint: { "line-color": MOSS, "line-width": 2.5, "line-opacity": 0.9 },
 };
 
-/** The search radius around a picked point. */
+/** The search radius around a picked point (its dashed outline is <RadiusRing>, a DOM overlay). */
 export const radiusFill: Omitted<FillLayerSpecification> = {
   id: LAYER.radiusFill,
   type: "fill",
   paint: { "fill-color": ORANGE, "fill-opacity": 0.07 },
-};
-export const radiusLine: Omitted<LineLayerSpecification> = {
-  id: LAYER.radiusLine,
-  type: "line",
-  paint: { "line-color": ORANGE, "line-width": 1.5, "line-dasharray": [2, 2], "line-opacity": 0.8 },
 };

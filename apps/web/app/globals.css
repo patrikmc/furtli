@@ -12,6 +12,24 @@
   --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bricolage Grotesque Variable", "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
 
+  /* Preview marker: a halo breathes out from the ring, slow and eased, with
+     a short rest between beats (replaces Tailwind's 1 s animate-ping). Fully
+     opaque at the start so it reads clearly beyond the ring, then fades as it
+     grows. */
+  --animate-halo: halo 2.8s cubic-bezier(0.25, 0.6, 0.35, 1) infinite;
+  @keyframes halo {
+    0% { transform: scale(1); opacity: 1; }
+    80%, 100% { transform: scale(1.9); opacity: 0; }
+  }
+
+  /* Search radius outline: the dashes drift slowly round the circle, one 6 px
+     dash period per 2 s (3 px/s), in 24 small steps (~12 repaints/s of one
+     SVG) (motion-safe only). */
+  --animate-dash-drift: dash-drift 2s steps(24) infinite;
+  @keyframes dash-drift {
+    to { stroke-dashoffset: -6px; }
+  }
+
   /* Reminder CTA: the bell rings once when the panel opens (motion-safe only). */
   --animate-bell: bell 0.9s ease-in-out 0.5s 1;
   @keyframes bell {

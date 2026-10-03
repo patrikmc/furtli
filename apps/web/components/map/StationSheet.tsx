@@ -46,6 +46,7 @@ export function StationSheet({
       onClose={onClose}
       onBack={onBack}
       testId="station-sheet"
+      animated
     >
       <div className="mt-3 space-y-4">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink/70">

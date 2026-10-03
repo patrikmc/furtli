@@ -1,12 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import * as m from "motion/react-m";
+import type { HTMLMotionProps } from "motion/react";
 import { useLang } from "@/components/i18n/LangProvider";
 
 /** Mobile sheet heights (MapShell's panelPadding keeps the focus above the compact one). */
 export const SHEET_COMPACT = 0.4;
 const COMPACT = "40dvh";
 const EXPANDED = "85dvh";
+/**
+ * Enter/exit for animated sheets (the station card): a short rise and fade in,
+ * a quicker fade out. Transform + opacity only, so it stays on the compositor.
+ * Exit needs the sheet inside <AnimatePresence> (see MapShell).
+ */
+const SHEET_MOTION: Pick<HTMLMotionProps<"section">, "initial" | "animate" | "exit"> = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0, transition: { type: "spring", duration: 0.35, bounce: 0.1 } },
+  exit: { opacity: 0, y: 12, transition: { duration: 0.15, ease: "easeIn" } },
+};
+
 /** Drag distance (px) that switches between compact and expanded. */
 const SNAP = 48;
 /** Dragging the compact sheet down this far closes it. */
@@ -27,6 +40,7 @@ export function Sheet({
   onBack,
   testId,
   collapseKey,
+  animated = false,
   children,
 }: {
   title: string;
@@ -36,6 +50,8 @@ export function Sheet({
   testId: string;
   /** When this changes (e.g. a new postcode was picked), shrink back to compact so the map shows the new focus. */
   collapseKey?: string;
+  /** Rise in on open and fade out on close (Motion). */
+  animated?: boolean;
   children: ReactNode;
 }) {
   const { t } = useLang();
@@ -93,7 +109,8 @@ export function Sheet({
   const dragStyle = dragY === null ? undefined : { ["--sheet-h" as string]: `max(8rem, min(92dvh, calc(${base} - ${dragY}px)))` };
 
   return (
-    <section
+    <m.section
+      {...(animated ? SHEET_MOTION : {})}
       role="dialog"
       aria-label={title}
       data-testid={testId}
@@ -154,6 +171,6 @@ export function Sheet({
         </button>
       </div>
       {children}
-    </section>
+    </m.section>
   );
 }

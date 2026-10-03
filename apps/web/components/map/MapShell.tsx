@@ -38,6 +38,8 @@ import { NearbyPanel } from "./NearbyPanel";
 import { PlacePicker } from "./PlacePicker";
 import { SHEET_COMPACT } from "./Sheet";
 import { StationSheet } from "./StationSheet";
+import { AnimatePresence } from "motion/react";
+import { MotionProvider } from "@/components/motion/MotionProvider";
 import { TypeFilterChips } from "./TypeFilterChips";
 import { useMapData } from "./useMapData";
 import type { InitialView, MapErrorKind, MapPin, PreviewStation } from "./ZurichMap";
@@ -480,15 +482,7 @@ export default function MapShell({
       <LocateButton locate={locate} busy={locating} />
       <HintToast hint={hint} onDismiss={() => setHint(null)} />
 
-      {selectedStation ? (
-        <StationSheet
-          station={selectedStation}
-          distance={selectedDistance}
-          anchorPlz={anchorPlz}
-          onBack={resolved ? () => setStationId(null) : undefined}
-          onClose={() => setStationId(null)}
-        />
-      ) : resolved ? (
+      {selectedStation ? null : resolved ? (
         <NearbyPanel
           resolved={resolved}
           results={results}
@@ -515,6 +509,22 @@ export default function MapShell({
           </div>
         )
       )}
+
+      {/* Station card, after the list in the DOM: on close it fades out above the list that replaces it. */}
+      <MotionProvider>
+        <AnimatePresence>
+          {selectedStation && (
+            <StationSheet
+              key="station"
+              station={selectedStation}
+              distance={selectedDistance}
+              anchorPlz={anchorPlz}
+              onBack={resolved ? () => setStationId(null) : undefined}
+              onClose={() => setStationId(null)}
+            />
+          )}
+        </AnimatePresence>
+      </MotionProvider>
 
       {/* Loading skeleton / errors (the style is fetched client-side and can be slow) */}
       {!mapReady && !mapError && (

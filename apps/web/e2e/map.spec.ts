@@ -63,6 +63,8 @@ test("tap any point on the map: nearby list grouped by distance, pin, shareable 
   await expect(panel).toBeVisible();
   await expect(panel).toContainText(/Kreis \d+/);
   await expect(page.getByTestId("search-pin")).toBeVisible();
+  // Dashed radius outline (SVG overlay): sized to the 1 km circle, not empty.
+  expect(Number(await page.getByTestId("radius-ring").getAttribute("width"))).toBeGreaterThan(20);
   await expect(page).toHaveURL(/\?at=47\.\d{5}%2C8\.\d{5}$/);
   await expect(page.getByRole("radiogroup")).toHaveCount(0);
   await expect(page.getByTestId("list-title")).toHaveText("Termine: Mobiler Recyclinghof");

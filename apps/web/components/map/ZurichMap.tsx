@@ -23,6 +23,7 @@ import { DATA_ATTRIBUTION } from "@/lib/map-config";
 import { reducedMotion } from "@/lib/motion";
 import { registerStationIcons } from "./icons";
 import { KindDot } from "./KindDot";
+import { RadiusRing } from "./RadiusRing";
 import type { StationKind } from "@/lib/geo/types";
 import {
   LAYER,
@@ -34,7 +35,6 @@ import {
   kreisLabel,
   kreisLine,
   radiusFill,
-  radiusLine,
   stationHalo,
   stationSymbol,
 } from "./layers";
@@ -241,9 +241,9 @@ export default function ZurichMap({
       {styleReady && radiusData && (
         <Source id="radius" type="geojson" data={radiusData}>
           <Layer {...radiusFill} />
-          <Layer {...radiusLine} />
         </Source>
       )}
+      {styleReady && radiusCircle && <RadiusRing circle={radiusCircle} />}
 
       {styleReady && stations && (
         <Source
@@ -279,7 +279,7 @@ export default function ZurichMap({
             className="relative grid cursor-pointer place-items-center"
           >
             <span className="absolute h-14 w-14 rounded-full bg-orange/20 ring-2 ring-orange" aria-hidden />
-            <span className="absolute h-14 w-14 rounded-full bg-orange/30 motion-safe:animate-ping" aria-hidden />
+            <span className="absolute h-14 w-14 rounded-full bg-orange/35 motion-safe:animate-halo" aria-hidden />
             <span className="relative rounded-full bg-white p-[3px] shadow-md">
               <KindDot kind={previewStation.kind} size={30} />
             </span>
